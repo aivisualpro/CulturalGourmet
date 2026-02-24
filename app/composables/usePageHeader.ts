@@ -10,6 +10,9 @@ const headerState = reactive<PageHeaderState>({
   icon: '',
 })
 
+/** Teleport target ID for page-specific header actions */
+export const HEADER_ACTIONS_ID = 'header-actions'
+
 export function usePageHeader() {
   function setHeader(opts: PageHeaderState) {
     headerState.title = opts.title
@@ -27,5 +30,6 @@ export function usePageHeader() {
     headerState: readonly(headerState),
     setHeader,
     clearHeader,
+    HEADER_ACTIONS_ID,
   }
 }

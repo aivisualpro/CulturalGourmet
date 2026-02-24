@@ -109,16 +109,7 @@ const modules = [
     color: 'text-indigo-500',
     bgColor: 'bg-indigo-500/10',
     features: ['Inbox', 'Compose', 'Account Switching', 'Search'],
-    link: '/email',
-  },
-  {
-    title: 'Task Management',
-    description: 'Advanced task tracking with data tables, filtering, sorting, column management, and bulk actions.',
-    icon: 'i-lucide-calendar-check-2',
-    color: 'text-lime-500',
-    bgColor: 'bg-lime-500/10',
-    features: ['Data Tables', 'Filtering', 'Sorting', 'Bulk Actions'],
-    link: '/tasks',
+    link: '/marketing/emails',
   },
   {
     title: 'Kanban Board',
@@ -127,7 +118,7 @@ const modules = [
     color: 'text-fuchsia-500',
     bgColor: 'bg-fuchsia-500/10',
     features: ['Drag & Drop', 'Custom Columns', 'Task Cards', 'Status Management'],
-    link: '/kanban',
+    link: '/tasks',
   },
 ]
 
@@ -509,7 +500,7 @@ const industries = [
               <Icon name="i-lucide-code-2" class="size-12 text-primary" />
             </div>
             <p class="text-lg font-bold">
-              AI Visual Pro
+              Cultural Gourmet
             </p>
             <p class="text-sm text-muted-foreground">
               Building the future of business software
@@ -522,7 +513,7 @@ const industries = [
     <!-- Footer -->
     <div class="text-center py-4 border-t">
       <p class="text-sm text-muted-foreground">
-        Built with ❤️ by <strong>Adeel Jabbar</strong> · <strong class="text-primary">AI Visual Pro</strong> · MIT License
+        Built with ❤️ by <strong>Adeel Jabbar</strong> · <strong class="text-primary">Cultural Gourmet</strong> · MIT License
       </p>
     </div>
   </div>

@@ -15,7 +15,7 @@ const teams: {
   plan: string
 }[] = [
   {
-    name: 'AI Visual Pro',
+    name: 'Cultural Gourmet',
     logo: 'i-lucide-gallery-vertical-end',
     plan: 'Enterprise',
   },

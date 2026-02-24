@@ -1,10 +1,10 @@
 {
-  "name": "nuxt-shadcn-dashboard",
+  "name": "cultural-gourmet",
   "type": "module",
   "version": "1.0.2",
   "packageManager": "pnpm@10.10.0",
-  "description": "Dashboard built with Nuxt",
-  "author": "Dian Pratama <admin@aivisualpro.com>",
+  "description": "Cultural Gourmet — Built with Nuxt",
+  "author": "Adeel Jabbar <admin@aivisualpro.com>",
   "keywords": [
     "dashboard",
     "admin-dashboard",
@@ -12,7 +12,7 @@
     "nuxt",
     "shadcn-vue",
     "shadcn-nuxt",
-    "shadcn-dashboard",
+    "cultural-gourmet",
     "tailwindcss"
   ],
   "main": "./nuxt.config.ts",
@@ -55,6 +55,7 @@
     "@vercel/analytics": "^1.6.1",
     "embla-carousel": "^8.6.0",
     "embla-carousel-vue": "^8.6.0",
+    "mongoose": "^9.2.2",
     "nanoid": "^5.1.6",
     "reka-ui": "^2.5.1",
     "tailwindcss": "^4.1.14",

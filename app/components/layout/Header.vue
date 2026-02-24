@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
+
 const route = useRoute()
 const { headerState, clearHeader } = usePageHeader()
 
@@ -41,6 +43,7 @@ const displayTitle = computed(() => headerState.title || fallbackTitle.value)
       </div>
     </div>
     <div class="ml-auto flex items-center gap-2">
+      <div :id="HEADER_ACTIONS_ID" class="contents" />
       <slot />
     </div>
   </header>

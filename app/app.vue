@@ -25,8 +25,8 @@ useHead({
   },
 })
 
-const title = 'AI Visual Pro — Enterprise ERP & CRM Platform'
-const description = 'A comprehensive enterprise resource planning and CRM platform by AI Visual Pro. Built with Nuxt 4, Shadcn Vue, and TailwindCSS — featuring 12+ modules, full CRUD, dark mode, and multi-theme support.'
+const title = 'Cultural Gourmet'
+const description = 'Cultural Gourmet — Built with Nuxt 4, Shadcn Vue, and TailwindCSS.'
 
 useSeoMeta({
   title,
@@ -34,10 +34,10 @@ useSeoMeta({
   ogTitle: title,
   ogDescription: description,
   ogUrl: 'https://dashboard.dianprata.com',
-  ogImage: 'https://nuxt-shadcn-dashboard.vercel.app/social-card.png',
+  ogImage: '/social-card.png',
   twitterTitle: title,
   twitterDescription: description,
-  twitterImage: 'https://nuxt-shadcn-dashboard.vercel.app/social-card.png',
+  twitterImage: '/social-card.png',
   twitterCard: 'summary_large_image',
 })
 
@@ -45,7 +45,7 @@ const router = useRouter()
 
 defineShortcuts({
   'G-H': () => router.push('/'),
-  'G-E': () => router.push('/email'),
+  'G-E': () => router.push('/marketing/emails'),
 })
 
 const textDirection = useTextDirection({ initialValue: 'ltr' })
@@ -59,8 +59,6 @@ const dir = computed(() => textDirection.value === 'rtl' ? 'rtl' : 'ltr')
         <NuxtLayout>
           <NuxtPage />
         </NuxtLayout>
-
-        <AppSettings />
       </div>
 
       <Toaster :theme="colorMode.preference as any || 'system'" />
