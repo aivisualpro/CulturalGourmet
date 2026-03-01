@@ -10,6 +10,11 @@ export const navMenu: NavMenu[] = [
         link: '/',
       },
       {
+        title: 'External Links',
+        icon: 'i-lucide-external-link',
+        link: '/culture-gourmet-customer-portal',
+      },
+      {
         title: 'Gallery',
         icon: 'i-lucide-images',
         link: '/gallery',
