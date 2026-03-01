@@ -14,6 +14,16 @@ To restore a hidden route, find the relevant nav file listed below and re-add th
 |---|---|---|---|
 | `/tasks` | Tasks | `/` | 2026-02-27 |
 
+## CRM
+
+> To restore: re-add the item to the CRM group in `app/constants/menus.ts` and remove the redirect rule from `nuxt.config.ts`.
+
+| Route | Title | Redirects To | Hidden On |
+|---|---|---|---|
+| `/crm/contacts` | Contacts | `/` | 2026-03-01 |
+| `/crm/deals` | Deals Pipeline | `/` | 2026-03-01 |
+| `/crm/activities` | Activities | `/` | 2026-03-01 |
+
 ## Sales & Commerce
 
 > To restore: re-add the item to the Sales & Commerce group in `app/constants/menus.ts` and remove the redirect rule from `nuxt.config.ts`.
@@ -21,13 +31,21 @@ To restore a hidden route, find the relevant nav file listed below and re-add th
 | Route | Title | Redirects To | Hidden On |
 |---|---|---|---|
 | `/sales/products` | Products | `/` | 2026-02-27 |
+| `/sales/quotes` | Quotes | `/` | 2026-03-01 |
 
 ## Finance & Accounting
 
-> To restore: re-add the item to the Finance & Accounting group in `app/constants/menus.ts` and remove the redirect rule from `nuxt.config.ts`.
+> To restore: re-add the menu group to `app/constants/menus.ts` and remove the redirect rules from `nuxt.config.ts`.
 
 | Route | Title | Redirects To | Hidden On |
 |---|---|---|---|
+| `/finance/accounts` | Accounts | `/` | 2026-03-01 |
+| `/finance/transactions` | Transactions | `/` | 2026-03-01 |
+| `/finance/expenses` | Expenses | `/` | 2026-03-01 |
+| `/finance/taxes` | Tax Management | `/` | 2026-03-01 |
+| `/finance/balance-sheet` | Balance Sheet | `/` | 2026-03-01 |
+| `/finance/income-statement` | Income Statement | `/` | 2026-03-01 |
+| `/finance/ratios` | Financial Ratios | `/` | 2026-03-01 |
 | `/finance/business-health` | Business Health | `/` | 2026-02-27 |
 
 ## Marketing

@@ -89,7 +89,20 @@ export default defineNuxtConfig({
     '/tasks': { redirect: '/' },
     // Sales & Commerce — partial removal
     '/sales/products': { redirect: '/' },
-    // Finance & Accounting — partial removal
+    // CRM — partial removal
+    '/crm/contacts': { redirect: '/' },
+    '/crm/deals': { redirect: '/' },
+    '/crm/activities': { redirect: '/' },
+    // Sales & Commerce — partial removal
+    '/sales/quotes': { redirect: '/' },
+    // Finance & Accounting — fully removed
+    '/finance/accounts': { redirect: '/' },
+    '/finance/transactions': { redirect: '/' },
+    '/finance/expenses': { redirect: '/' },
+    '/finance/taxes': { redirect: '/' },
+    '/finance/balance-sheet': { redirect: '/' },
+    '/finance/income-statement': { redirect: '/' },
+    '/finance/ratios': { redirect: '/' },
     '/finance/business-health': { redirect: '/' },
     // Marketing — hidden and URL-blocked
     '/marketing/emails': { redirect: '/' },
