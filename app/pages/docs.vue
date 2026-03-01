@@ -500,7 +500,7 @@ const industries = [
               <Icon name="i-lucide-code-2" class="size-12 text-primary" />
             </div>
             <p class="text-lg font-bold">
-              Cultural Gourmet
+              The Culture Gourmet
             </p>
             <p class="text-sm text-muted-foreground">
               Building the future of business software
@@ -513,7 +513,7 @@ const industries = [
     <!-- Footer -->
     <div class="text-center py-4 border-t">
       <p class="text-sm text-muted-foreground">
-        Built with ❤️ by <strong>Adeel Jabbar</strong> · <strong class="text-primary">Cultural Gourmet</strong> · MIT License
+        Built with ❤️ by <strong>Adeel Jabbar</strong> · <strong class="text-primary">The Culture Gourmet</strong> · MIT License
       </p>
     </div>
   </div>

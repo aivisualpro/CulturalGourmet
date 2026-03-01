@@ -9,27 +9,7 @@ function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): an
   return resolveComponent('LayoutSidebarNavLink')
 }
 
-const teams: {
-  name: string
-  logo: string
-  plan: string
-}[] = [
-  {
-    name: 'Cultural Gourmet',
-    logo: 'i-lucide-gallery-vertical-end',
-    plan: 'Enterprise',
-  },
-  {
-    name: 'Full Stack CRM',
-    logo: 'i-lucide-audio-waveform',
-    plan: 'Professional',
-  },
-  {
-    name: 'Demo Workspace',
-    logo: 'i-lucide-command',
-    plan: 'Free',
-  },
-]
+const appName = 'The Culture Gourmet'
 
 const user: {
   name: string
@@ -47,7 +27,7 @@ const { sidebar } = useAppSettings()
 <template>
   <Sidebar :collapsible="sidebar?.collapsible" :side="sidebar?.side" :variant="sidebar?.variant">
     <SidebarHeader>
-      <LayoutSidebarNavHeader :teams="teams" />
+      <LayoutSidebarNavHeader :name="appName" />
       <Search />
     </SidebarHeader>
     <SidebarContent>

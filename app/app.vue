@@ -15,7 +15,7 @@ useHead({
     { key: 'theme-color', name: 'theme-color', content: color },
   ],
   link: [
-    { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+    { rel: 'icon', type: 'image/png', href: '/the culture gourmet logo.png' },
   ],
   htmlAttrs: {
     lang: 'en',
@@ -25,8 +25,8 @@ useHead({
   },
 })
 
-const title = 'Cultural Gourmet'
-const description = 'Cultural Gourmet — Built with Nuxt 4, Shadcn Vue, and TailwindCSS.'
+const title = 'The Culture Gourmet'
+const description = 'The Culture Gourmet — Built with Nuxt 4, Shadcn Vue, and TailwindCSS.'
 
 useSeoMeta({
   title,

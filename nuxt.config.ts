@@ -56,6 +56,7 @@ export default defineNuxtConfig({
 
   colorMode: {
     classSuffix: '',
+    preference: 'light',
   },
 
   eslint: {
@@ -73,6 +74,31 @@ export default defineNuxtConfig({
   routeRules: {
     '/components': { redirect: '/components/accordion' },
     '/settings': { redirect: '/settings/profile' },
+    '/settings/notifications': { redirect: '/settings/profile' },
+    // HR & Workforce — hidden and URL-blocked
+    '/hr/employees': { redirect: '/' },
+    '/hr/attendance': { redirect: '/' },
+    '/hr/payroll': { redirect: '/' },
+    '/hr/recruitment': { redirect: '/' },
+    '/hr/leaves': { redirect: '/' },
+    // Project Management — hidden and URL-blocked
+    '/projects/list': { redirect: '/' },
+    '/projects/timesheets': { redirect: '/' },
+    '/projects/milestones': { redirect: '/' },
+    // General — partial removal
+    '/tasks': { redirect: '/' },
+    // Sales & Commerce — partial removal
+    '/sales/products': { redirect: '/' },
+    // Finance & Accounting — partial removal
+    '/finance/business-health': { redirect: '/' },
+    // Marketing — hidden and URL-blocked
+    '/marketing/emails': { redirect: '/' },
+    '/marketing/campaigns': { redirect: '/' },
+    '/marketing/email-blasts': { redirect: '/' },
+    '/marketing/analytics': { redirect: '/' },
+    // Reports — partial removal
+    '/reports/financial': { redirect: '/' },
+    '/reports/hr': { redirect: '/' },
   },
 
   imports: {

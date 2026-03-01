@@ -10,9 +10,9 @@ export const navMenu: NavMenu[] = [
         link: '/',
       },
       {
-        title: 'Tasks',
-        icon: 'i-lucide-kanban',
-        link: '/tasks',
+        title: 'Gallery',
+        icon: 'i-lucide-images',
+        link: '/gallery',
       },
     ],
   },
@@ -87,11 +87,7 @@ export const navMenu: NavMenu[] = [
         icon: 'i-lucide-shopping-cart',
         link: '/sales/orders',
       },
-      {
-        title: 'Products',
-        icon: 'i-lucide-package',
-        link: '/sales/products',
-      },
+
       {
         title: 'Customers',
         icon: 'i-lucide-users',
@@ -100,36 +96,7 @@ export const navMenu: NavMenu[] = [
     ],
   },
 
-  {
-    heading: 'HR & Workforce',
-    items: [
-      {
-        title: 'Employees',
-        icon: 'i-lucide-user-round-check',
-        link: '/hr/employees',
-      },
-      {
-        title: 'Attendance',
-        icon: 'i-lucide-clock',
-        link: '/hr/attendance',
-      },
-      {
-        title: 'Payroll',
-        icon: 'i-lucide-banknote',
-        link: '/hr/payroll',
-      },
-      {
-        title: 'Recruitment',
-        icon: 'i-lucide-briefcase',
-        link: '/hr/recruitment',
-      },
-      {
-        title: 'Leave Mgmt',
-        icon: 'i-lucide-calendar-off',
-        link: '/hr/leaves',
-      },
-    ],
-  },
+
   {
     heading: 'Finance & Accounting',
     items: [
@@ -171,80 +138,12 @@ export const navMenu: NavMenu[] = [
         link: '/finance/ratios',
         new: true,
       },
-      {
-        title: 'Business Health',
-        icon: 'i-lucide-heart-pulse',
-        link: '/finance/business-health',
-        new: true,
-      },
+
     ],
   },
-  {
-    heading: 'Project Management',
-    items: [
-      {
-        title: 'Projects',
-        icon: 'i-lucide-folder-kanban',
-        link: '/projects/list',
-      },
-      {
-        title: 'Timesheets',
-        icon: 'i-lucide-timer',
-        link: '/projects/timesheets',
-      },
-      {
-        title: 'Milestones',
-        icon: 'i-lucide-flag',
-        link: '/projects/milestones',
-      },
-    ],
-  },
-  {
-    heading: 'Support',
-    items: [
-      {
-        title: 'Tickets',
-        icon: 'i-lucide-ticket',
-        link: '/support/tickets',
-      },
-      {
-        title: 'Knowledge Base',
-        icon: 'i-lucide-book-open',
-        link: '/support/knowledge-base',
-      },
-      {
-        title: 'Live Chat',
-        icon: 'i-lucide-message-circle',
-        link: '/support/chat',
-        new: true,
-      },
-    ],
-  },
-  {
-    heading: 'Marketing',
-    items: [
-      {
-        title: 'Emails',
-        icon: 'i-lucide-mail',
-        link: '/marketing/emails',
-      },
-      {
-        title: 'Campaigns',
-        icon: 'i-lucide-megaphone',
-        link: '/marketing/campaigns',
-      },
-      {
-        title: 'Email Blasts',
-        icon: 'i-lucide-mails',
-        link: '/marketing/email-blasts',
-      },
-      {
-        title: 'Analytics',
-        icon: 'i-lucide-bar-chart-3',
-        link: '/marketing/analytics',
-      },
-    ],
-  },
+
+
+
   {
     heading: 'Reports',
     items: [
@@ -252,16 +151,6 @@ export const navMenu: NavMenu[] = [
         title: 'Sales Reports',
         icon: 'i-lucide-trending-up',
         link: '/reports/sales',
-      },
-      {
-        title: 'Financial Reports',
-        icon: 'i-lucide-pie-chart',
-        link: '/reports/financial',
-      },
-      {
-        title: 'HR Reports',
-        icon: 'i-lucide-file-bar-chart',
-        link: '/reports/hr',
       },
     ],
   },

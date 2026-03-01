@@ -6,7 +6,7 @@ export default defineAppConfig({
       variant: 'inset', // 'sidebar' | 'floating' | 'inset'
     },
     theme: {
-      color: 'default', // 'default' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'teal' | 'yellow' | 'rose'
+      color: 'teal', // 'default' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'teal' | 'yellow' | 'rose'
       type: 'scaled', // 'default' | 'mono' | 'scaled'
     },
   },
