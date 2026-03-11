@@ -1,4 +1,5 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'blank' })
 useHead({ title: 'Our Menus — The Culture Gourmet' })
 
 const { setHeader } = usePageHeader()

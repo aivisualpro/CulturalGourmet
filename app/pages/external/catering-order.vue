@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
 
+definePageMeta({ layout: 'blank' })
 useHead({ title: 'New Catering Order — The Culture Gourmet' })
 
 const { setHeader } = usePageHeader()
