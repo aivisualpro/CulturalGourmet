@@ -25,6 +25,84 @@ const editingSubIdx = ref<number | null>(null)
 // Delete dialog
 const showDeleteDialog = ref(false)
 const deletingCat = ref<any>(null)
+const iconSearch = ref('')
+
+// Curated icon options for categories
+const iconOptions = [
+  { name: 'i-lucide-utensils', label: 'Utensils' },
+  { name: 'i-lucide-utensils-crossed', label: 'Utensils Crossed' },
+  { name: 'i-lucide-chef-hat', label: 'Chef Hat' },
+  { name: 'i-lucide-cooking-pot', label: 'Cooking Pot' },
+  { name: 'i-lucide-beef', label: 'Beef' },
+  { name: 'i-lucide-egg', label: 'Egg' },
+  { name: 'i-lucide-fish', label: 'Fish' },
+  { name: 'i-lucide-apple', label: 'Apple' },
+  { name: 'i-lucide-cherry', label: 'Cherry' },
+  { name: 'i-lucide-citrus', label: 'Citrus' },
+  { name: 'i-lucide-grape', label: 'Grape' },
+  { name: 'i-lucide-banana', label: 'Banana' },
+  { name: 'i-lucide-salad', label: 'Salad' },
+  { name: 'i-lucide-sandwich', label: 'Sandwich' },
+  { name: 'i-lucide-pizza', label: 'Pizza' },
+  { name: 'i-lucide-popcorn', label: 'Popcorn' },
+  { name: 'i-lucide-cake', label: 'Cake' },
+  { name: 'i-lucide-cake-slice', label: 'Cake Slice' },
+  { name: 'i-lucide-cookie', label: 'Cookie' },
+  { name: 'i-lucide-candy', label: 'Candy' },
+  { name: 'i-lucide-ice-cream-cone', label: 'Ice Cream' },
+  { name: 'i-lucide-cup-soda', label: 'Cup Soda' },
+  { name: 'i-lucide-coffee', label: 'Coffee' },
+  { name: 'i-lucide-wine', label: 'Wine' },
+  { name: 'i-lucide-beer', label: 'Beer' },
+  { name: 'i-lucide-milk', label: 'Milk' },
+  { name: 'i-lucide-glass-water', label: 'Water' },
+  { name: 'i-lucide-wheat', label: 'Wheat' },
+  { name: 'i-lucide-leaf', label: 'Leaf' },
+  { name: 'i-lucide-vegan', label: 'Vegan' },
+  { name: 'i-lucide-nut', label: 'Nut' },
+  { name: 'i-lucide-flame', label: 'Flame' },
+  { name: 'i-lucide-snowflake', label: 'Snowflake' },
+  { name: 'i-lucide-thermometer', label: 'Thermometer' },
+  { name: 'i-lucide-refrigerator', label: 'Refrigerator' },
+  { name: 'i-lucide-microwave', label: 'Microwave' },
+  { name: 'i-lucide-shopping-cart', label: 'Shopping Cart' },
+  { name: 'i-lucide-shopping-basket', label: 'Shopping Basket' },
+  { name: 'i-lucide-store', label: 'Store' },
+  { name: 'i-lucide-warehouse', label: 'Warehouse' },
+  { name: 'i-lucide-truck', label: 'Truck' },
+  { name: 'i-lucide-package', label: 'Package' },
+  { name: 'i-lucide-box', label: 'Box' },
+  { name: 'i-lucide-archive', label: 'Archive' },
+  { name: 'i-lucide-clipboard-list', label: 'Clipboard' },
+  { name: 'i-lucide-receipt', label: 'Receipt' },
+  { name: 'i-lucide-dollar-sign', label: 'Dollar' },
+  { name: 'i-lucide-tag', label: 'Tag' },
+  { name: 'i-lucide-tags', label: 'Tags' },
+  { name: 'i-lucide-heart', label: 'Heart' },
+  { name: 'i-lucide-star', label: 'Star' },
+  { name: 'i-lucide-crown', label: 'Crown' },
+  { name: 'i-lucide-sparkles', label: 'Sparkles' },
+  { name: 'i-lucide-zap', label: 'Zap' },
+  { name: 'i-lucide-shield', label: 'Shield' },
+  { name: 'i-lucide-award', label: 'Award' },
+  { name: 'i-lucide-gift', label: 'Gift' },
+  { name: 'i-lucide-map-pin', label: 'Map Pin' },
+  { name: 'i-lucide-clock', label: 'Clock' },
+  { name: 'i-lucide-calendar', label: 'Calendar' },
+  { name: 'i-lucide-sun', label: 'Sun' },
+  { name: 'i-lucide-moon', label: 'Moon' },
+  { name: 'i-lucide-droplets', label: 'Droplets' },
+  { name: 'i-lucide-test-tube', label: 'Test Tube' },
+  { name: 'i-lucide-flask-round', label: 'Flask' },
+  { name: 'i-lucide-folder', label: 'Folder' },
+  { name: 'i-lucide-layers', label: 'Layers' },
+]
+
+const filteredIcons = computed(() => {
+  if (!iconSearch.value) return iconOptions
+  const q = iconSearch.value.toLowerCase()
+  return iconOptions.filter(i => i.label.toLowerCase().includes(q) || i.name.toLowerCase().includes(q))
+})
 
 // Color options for category cards
 const colorOptions = [
@@ -459,9 +537,32 @@ async function handleRefresh() {
             </div>
           </div>
           <div class="space-y-2">
-            <Label for="catIcon">Icon</Label>
-            <Input id="catIcon" v-model="catForm.icon" placeholder="e.g. i-lucide-utensils" />
-            <p class="text-xs text-muted-foreground">Use any Lucide icon name with <code class="text-primary">i-lucide-</code> prefix</p>
+            <Label>Icon</Label>
+            <div class="relative mb-2">
+              <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input v-model="iconSearch" placeholder="Search icons..." class="pl-8 h-8 text-xs" />
+            </div>
+            <div class="grid grid-cols-8 gap-1.5 max-h-[200px] overflow-y-auto rounded-lg border p-2 bg-muted/30">
+              <button
+                v-for="ic in filteredIcons"
+                :key="ic.name"
+                type="button"
+                class="flex items-center justify-center size-9 rounded-lg transition-all duration-150 border"
+                :class="catForm.icon === ic.name
+                  ? 'bg-primary text-primary-foreground border-primary scale-110 shadow-md'
+                  : 'bg-background border-transparent hover:border-border hover:bg-accent'"
+                :title="ic.label"
+                @click="catForm.icon = ic.name"
+              >
+                <Icon :name="ic.name" class="size-4" />
+              </button>
+              <div v-if="filteredIcons.length === 0" class="col-span-8 py-4 text-center text-xs text-muted-foreground">
+                No icons match "{{ iconSearch }}"
+              </div>
+            </div>
+            <p v-if="catForm.icon" class="text-xs text-muted-foreground flex items-center gap-1.5">
+              Selected: <Icon :name="catForm.icon" class="size-4 text-primary" /> <code class="text-primary text-[10px]">{{ catForm.icon }}</code>
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" type="button" @click="showCatDialog = false">Cancel</Button>

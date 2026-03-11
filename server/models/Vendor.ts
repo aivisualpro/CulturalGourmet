@@ -2,24 +2,16 @@ import mongoose, { type Document, Schema } from 'mongoose'
 
 // ─── Sub-document: Contact ───────────────────────────────────
 export interface IContact {
-  contactPerson: string
-  emails: string[]
-  phones: string[]
-  addresses: string[]
-  designation?: string
-  department?: string
-  status: 'active' | 'inactive'
+  name: string
+  email: string
+  phone: string
 }
 
 const ContactSchema = new Schema<IContact>(
   {
-    contactPerson: { type: String, required: true, trim: true },
-    emails: { type: [String], default: [] },
-    phones: { type: [String], default: [] },
-    addresses: { type: [String], default: [] },
-    designation: { type: String, trim: true },
-    department: { type: String, trim: true },
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    name: { type: String, required: true, trim: true },
+    email: { type: String, trim: true, default: '' },
+    phone: { type: String, trim: true, default: '' },
   },
   { _id: true },
 )
@@ -27,6 +19,9 @@ const ContactSchema = new Schema<IContact>(
 // ─── Main Document: Vendor ───────────────────────────────────
 export interface IVendor extends Document {
   vendorName: string
+  address: string
+  phone: string
+  email: string
   contacts: IContact[]
   createdAt: Date
   updatedAt: Date
@@ -35,6 +30,9 @@ export interface IVendor extends Document {
 const VendorSchema = new Schema<IVendor>(
   {
     vendorName: { type: String, required: true, trim: true },
+    address: { type: String, trim: true, default: '' },
+    phone: { type: String, trim: true, default: '' },
+    email: { type: String, trim: true, default: '' },
     contacts: { type: [ContactSchema], default: [] },
   },
   {

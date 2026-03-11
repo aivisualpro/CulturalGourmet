@@ -35,9 +35,19 @@ export const navMenu: NavMenu[] = [
         link: '/inventory/vendors',
       },
       {
+        title: 'Locations',
+        icon: 'i-lucide-map-pin',
+        link: '/inventory/locations',
+      },
+      {
         title: 'Categories',
         icon: 'i-lucide-tags',
         link: '/inventory/categories',
+      },
+      {
+        title: 'Food Items',
+        icon: 'i-lucide-chef-hat',
+        link: '/inventory/food-items',
       },
       {
         title: 'Consumptions',
