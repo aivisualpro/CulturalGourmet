@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, createHmac, randomBytes } from 'node:crypto'
 
 /**
  * Simple password hashing using SHA-256 with salt
@@ -23,35 +23,48 @@ export function generateVerificationCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-/**
- * Generate a simple session token
- */
-export function generateSessionToken(): string {
-  return randomBytes(48).toString('hex')
-}
+// ─── Signed Token Sessions (works on serverless / Vercel) ──────
+// Instead of in-memory sessions, we encode session data into the token itself
+// and sign it with HMAC so it can't be tampered with.
 
-/**
- * Simple in-memory session store (for dev; replace with Redis or DB in production)
- */
-const sessions = new Map<string, { userId: string, email: string, role: string, expiresAt: number }>()
+const SECRET = process.env.SESSION_SECRET || 'cg-session-secret-2026-change-in-prod'
+
+function sign(payload: string): string {
+  return createHmac('sha256', SECRET).update(payload).digest('hex')
+}
 
 export function createSession(userId: string, email: string, role: string): string {
-  const token = generateSessionToken()
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
-  sessions.set(token, { userId, email, role, expiresAt })
-  return token
+  const payload = JSON.stringify({ userId, email, role, expiresAt })
+  const encoded = Buffer.from(payload).toString('base64url')
+  const signature = sign(encoded)
+  return `${encoded}.${signature}`
 }
 
-export function getSession(token: string) {
-  const session = sessions.get(token)
-  if (!session) return null
-  if (Date.now() > session.expiresAt) {
-    sessions.delete(token)
+export function getSession(token: string): { userId: string, email: string, role: string, expiresAt: number } | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 2) return null
+
+    const [encoded, signature] = parts
+    // Verify signature
+    const expectedSignature = sign(encoded)
+    if (signature !== expectedSignature) return null
+
+    // Decode payload
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString())
+
+    // Check expiration
+    if (Date.now() > payload.expiresAt) return null
+
+    return payload
+  }
+  catch {
     return null
   }
-  return session
 }
 
-export function deleteSession(token: string) {
-  sessions.delete(token)
+export function deleteSession(_token: string) {
+  // With signed tokens, deletion is a no-op on the server.
+  // The client simply discards the token.
 }
