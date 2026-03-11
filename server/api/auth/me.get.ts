@@ -15,7 +15,18 @@ export default defineEventHandler(async (event) => {
 
   const user = await User.findById(session.userId).select('-password -emailVerificationCode -resetPasswordCode')
   if (!user) {
-    throw createError({ statusCode: 404, message: 'User not found' })
+    throw createError({ statusCode: 401, message: 'Account not found', data: { forceLogout: true } })
+  }
+
+  // Force logout if user has been rejected or deactivated
+  if (user.role !== 'super_admin' && (user.approvalStatus === 'rejected' || !user.isActive)) {
+    throw createError({
+      statusCode: 403,
+      message: user.approvalStatus === 'rejected'
+        ? 'Your account access has been revoked.'
+        : 'Your account has been deactivated.',
+      data: { forceLogout: true },
+    })
   }
 
   return {

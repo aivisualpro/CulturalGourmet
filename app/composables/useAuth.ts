@@ -236,6 +236,53 @@ export function useAuth() {
     }
   }
 
+  async function updateUser(userId: string, action: string, data?: { role?: string, reason?: string }) {
+    if (!token.value) return null
+    try {
+      return await $fetch<any>('/api/admin/update-user', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token.value}` },
+        body: { userId, action, ...data },
+      })
+    }
+    catch (err: any) {
+      throw new Error(err?.data?.message || 'Action failed')
+    }
+  }
+
+  async function deleteUser(userId: string) {
+    return updateUser(userId, 'delete')
+  }
+
+  async function validateSession(): Promise<boolean> {
+    if (!token.value) return false
+    try {
+      const res = await $fetch<any>('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token.value}` },
+      })
+      // Update user state from server
+      if (res?.user) {
+        user.value = res.user
+      }
+      return true
+    }
+    catch (err: any) {
+      const data = err?.data?.data || err?.data
+      if (data?.forceLogout || err?.statusCode === 403 || err?.status === 403) {
+        // User has been rejected/deleted — force logout
+        token.value = null
+        user.value = null
+        if (import.meta.client) {
+          localStorage.removeItem(AUTH_TOKEN_KEY)
+          localStorage.removeItem(AUTH_USER_KEY)
+          window.location.href = '/login?reason=revoked'
+        }
+        return false
+      }
+      return false
+    }
+  }
+
   return {
     user,
     token,
@@ -253,6 +300,9 @@ export function useAuth() {
     checkStatus,
     fetchPendingUsers,
     approveUser,
+    updateUser,
+    deleteUser,
+    validateSession,
     fetchNotifications,
   }
 }

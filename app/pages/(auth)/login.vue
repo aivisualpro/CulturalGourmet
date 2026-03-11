@@ -12,6 +12,7 @@ useSeoMeta({
 })
 
 const config = useRuntimeConfig()
+const route = useRoute()
 const { loginWithEmail, loginWithGoogle, isLoading } = useAuth()
 
 const email = ref('')
@@ -21,6 +22,13 @@ const errorMessage = ref('')
 const showPendingModal = ref(false)
 const pendingMessage = ref('')
 const googleLoading = ref(false)
+
+// Show revoked message if redirected from session check
+onMounted(() => {
+  if (route.query.reason === 'revoked') {
+    errorMessage.value = 'Your account access has been revoked. Please contact an administrator.'
+  }
+})
 
 // Particle animation state
 const particles = ref(
@@ -35,12 +43,35 @@ const particles = ref(
 )
 
 // Google Identity Services
-let googleClient: any = null
+
+function waitForGoogleApi(): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    // If already available, resolve immediately
+    if ((window as any).google?.accounts?.id) {
+      resolve()
+      return
+    }
+    // Poll for availability (script may still be loading)
+    let elapsed = 0
+    const interval = setInterval(() => {
+      elapsed += 100
+      if ((window as any).google?.accounts?.id) {
+        clearInterval(interval)
+        resolve()
+      }
+      else if (elapsed >= 5000) {
+        clearInterval(interval)
+        reject(new Error('Google API timed out'))
+      }
+    }, 100)
+  })
+}
 
 function loadGoogleScript() {
-  return new Promise<void>((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     if (document.getElementById('google-gis-script')) {
-      resolve()
+      // Script tag exists but API may not be ready — wait for it
+      waitForGoogleApi().then(resolve).catch(reject)
       return
     }
     const script = document.createElement('script')
@@ -48,25 +79,28 @@ function loadGoogleScript() {
     script.src = 'https://accounts.google.com/gsi/client'
     script.async = true
     script.defer = true
-    script.onload = () => resolve()
+    script.onload = () => waitForGoogleApi().then(resolve).catch(reject)
+    script.onerror = () => reject(new Error('Failed to load Google script'))
     document.head.appendChild(script)
   })
 }
 
 async function initGoogleClient() {
-  await loadGoogleScript()
+  try {
+    await loadGoogleScript()
+  }
+  catch (err) {
+    console.warn('[Auth] Failed to load Google Sign-In:', err)
+    return
+  }
   const clientId = config.public.googleClientId
   if (!clientId) {
     console.warn('[Auth] No Google client ID configured')
     return
   }
 
-  googleClient = (window as any).google?.accounts?.oauth2
-    ? null // We use the ID token flow via credential API
-    : null
-
   // Initialize the Google Identity Services credential client
-  ;(window as any).google?.accounts?.id?.initialize({
+  ;(window as any).google.accounts.id.initialize({
     client_id: clientId,
     callback: handleGoogleCallback,
     auto_select: false,

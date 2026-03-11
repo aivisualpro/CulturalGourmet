@@ -15,10 +15,31 @@ const config = useRuntimeConfig()
 const { register, loginWithGoogle, isLoading } = useAuth()
 
 // Google Identity Services
-function loadGoogleScript() {
-  return new Promise<void>((resolve) => {
-    if (document.getElementById('google-gis-script')) {
+function waitForGoogleApi(): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if ((window as any).google?.accounts?.id) {
       resolve()
+      return
+    }
+    let elapsed = 0
+    const interval = setInterval(() => {
+      elapsed += 100
+      if ((window as any).google?.accounts?.id) {
+        clearInterval(interval)
+        resolve()
+      }
+      else if (elapsed >= 5000) {
+        clearInterval(interval)
+        reject(new Error('Google API timed out'))
+      }
+    }, 100)
+  })
+}
+
+function loadGoogleScript() {
+  return new Promise<void>((resolve, reject) => {
+    if (document.getElementById('google-gis-script')) {
+      waitForGoogleApi().then(resolve).catch(reject)
       return
     }
     const script = document.createElement('script')
@@ -26,16 +47,23 @@ function loadGoogleScript() {
     script.src = 'https://accounts.google.com/gsi/client'
     script.async = true
     script.defer = true
-    script.onload = () => resolve()
+    script.onload = () => waitForGoogleApi().then(resolve).catch(reject)
+    script.onerror = () => reject(new Error('Failed to load Google script'))
     document.head.appendChild(script)
   })
 }
 
 async function initGoogleClient() {
-  await loadGoogleScript()
+  try {
+    await loadGoogleScript()
+  }
+  catch (err) {
+    console.warn('[Auth] Failed to load Google Sign-In:', err)
+    return
+  }
   const clientId = config.public.googleClientId
   if (!clientId) return
-  ;(window as any).google?.accounts?.id?.initialize({
+  ;(window as any).google.accounts.id.initialize({
     client_id: clientId,
     callback: handleGoogleCallback,
     auto_select: false,
