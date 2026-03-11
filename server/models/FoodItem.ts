@@ -13,8 +13,6 @@ export interface IFoodItem extends Document {
   casePrice: number
   onHand: number
   par: number
-  order: number
-  received: number
   createdAt: Date
   updatedAt: Date
 }
@@ -33,8 +31,6 @@ const FoodItemSchema = new Schema<IFoodItem>(
     casePrice: { type: Number, default: 0 },
     onHand: { type: Number, default: 0 },
     par: { type: Number, default: 0 },
-    order: { type: Number, default: 0 },
-    received: { type: Number, default: 0 },
   },
   {
     timestamps: true,
