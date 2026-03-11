@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { UserCheck, UserX, Clock, CheckCircle2, XCircle, Users, Loader2, Shield, Search, RefreshCw } from 'lucide-vue-next'
+import { UserCheck, UserX, Loader2, Shield, Search, RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 useHead({ title: 'Users Management — The Culture Gourmet' })
@@ -7,7 +7,7 @@ useHead({ title: 'Users Management — The Culture Gourmet' })
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Users Management', icon: 'i-lucide-users-round', description: 'Manage registered users and approval requests' })
 
-const { isAdmin, fetchPendingUsers, approveUser, token } = useAuth()
+const { isAdmin, fetchPendingUsers, approveUser } = useAuth()
 
 const activeTab = ref<'pending' | 'approved' | 'rejected' | 'all'>('pending')
 const users = ref<any[]>([])
@@ -18,34 +18,40 @@ const rejectUserId = ref('')
 const rejectUserName = ref('')
 const rejectReason = ref('')
 
-// Stats
+// Stats for tab badges
 const stats = ref({ pending: 0, approved: 0, rejected: 0, total: 0 })
 
 async function loadUsers() {
   isLoading.value = true
   try {
     const result = await fetchPendingUsers(activeTab.value)
-    if (result) {
-      users.value = result.users
-    }
+    users.value = result?.users || []
   }
-  catch { }
+  catch (e: any) {
+    console.error('Failed to load users:', e)
+    users.value = []
+  }
   finally {
     isLoading.value = false
   }
 }
 
 async function loadStats() {
-  const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
-    fetchPendingUsers('pending'),
-    fetchPendingUsers('approved'),
-    fetchPendingUsers('rejected'),
-  ])
-  stats.value = {
-    pending: pendingRes?.users?.length || 0,
-    approved: approvedRes?.users?.length || 0,
-    rejected: rejectedRes?.users?.length || 0,
-    total: (pendingRes?.users?.length || 0) + (approvedRes?.users?.length || 0) + (rejectedRes?.users?.length || 0),
+  try {
+    const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+      fetchPendingUsers('pending'),
+      fetchPendingUsers('approved'),
+      fetchPendingUsers('rejected'),
+    ])
+    stats.value = {
+      pending: pendingRes?.users?.length || 0,
+      approved: approvedRes?.users?.length || 0,
+      rejected: rejectedRes?.users?.length || 0,
+      total: (pendingRes?.users?.length || 0) + (approvedRes?.users?.length || 0) + (rejectedRes?.users?.length || 0),
+    }
+  }
+  catch (e) {
+    console.error('Failed to load stats:', e)
   }
 }
 
@@ -53,8 +59,7 @@ async function handleApprove(userId: string) {
   try {
     const result = await approveUser(userId, 'approve')
     toast.success('User approved!', { description: result.message })
-    loadUsers()
-    loadStats()
+    await Promise.all([loadUsers(), loadStats()])
   }
   catch (err: any) {
     toast.error(err.message)
@@ -73,8 +78,7 @@ async function handleReject() {
     const result = await approveUser(rejectUserId.value, 'reject', rejectReason.value)
     toast.success('User rejected', { description: result.message })
     showRejectDialog.value = false
-    loadUsers()
-    loadStats()
+    await Promise.all([loadUsers(), loadStats()])
   }
   catch (err: any) {
     toast.error(err.message)
@@ -91,9 +95,8 @@ const filteredUsers = computed(() => {
 
 watch(activeTab, () => loadUsers())
 
-onMounted(() => {
-  loadUsers()
-  loadStats()
+onMounted(async () => {
+  await Promise.all([loadUsers(), loadStats()])
 })
 
 function formatDate(dateStr: string) {
@@ -118,68 +121,30 @@ function getStatusColor(status: string) {
     default: return 'text-muted-foreground bg-muted'
   }
 }
+
+function getTabCount(tab: string): number {
+  switch (tab) {
+    case 'pending': return stats.value.pending
+    case 'approved': return stats.value.approved
+    case 'rejected': return stats.value.rejected
+    case 'all': return stats.value.total
+    default: return 0
+  }
+}
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
-    <!-- Stats cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card class="overflow-hidden">
-        <div class="p-5 flex items-center gap-4">
-          <div class="flex items-center justify-center size-12 rounded-xl bg-amber-500/10 border border-amber-500/10">
-            <Clock class="size-6 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div>
-            <p class="text-2xl font-bold">{{ stats.pending }}</p>
-            <p class="text-xs text-muted-foreground">Pending</p>
-          </div>
-        </div>
-      </Card>
-      <Card class="overflow-hidden">
-        <div class="p-5 flex items-center gap-4">
-          <div class="flex items-center justify-center size-12 rounded-xl bg-emerald-500/10 border border-emerald-500/10">
-            <CheckCircle2 class="size-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <p class="text-2xl font-bold">{{ stats.approved }}</p>
-            <p class="text-xs text-muted-foreground">Approved</p>
-          </div>
-        </div>
-      </Card>
-      <Card class="overflow-hidden">
-        <div class="p-5 flex items-center gap-4">
-          <div class="flex items-center justify-center size-12 rounded-xl bg-red-500/10 border border-red-500/10">
-            <XCircle class="size-6 text-red-600 dark:text-red-400" />
-          </div>
-          <div>
-            <p class="text-2xl font-bold">{{ stats.rejected }}</p>
-            <p class="text-xs text-muted-foreground">Rejected</p>
-          </div>
-        </div>
-      </Card>
-      <Card class="overflow-hidden">
-        <div class="p-5 flex items-center gap-4">
-          <div class="flex items-center justify-center size-12 rounded-xl bg-primary/10 border border-primary/10">
-            <Users class="size-6 text-primary" />
-          </div>
-          <div>
-            <p class="text-2xl font-bold">{{ stats.total }}</p>
-            <p class="text-xs text-muted-foreground">Total Users</p>
-          </div>
-        </div>
-      </Card>
-    </div>
-
     <!-- Main content -->
     <Card>
       <!-- Toolbar -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 border-b">
-        <!-- Tabs -->
+        <!-- Tabs with counts -->
         <div class="flex gap-1 bg-muted p-1 rounded-lg">
           <button
             v-for="tab in (['pending', 'approved', 'rejected', 'all'] as const)"
             :key="tab"
-            class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all capitalize"
+            class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all capitalize flex items-center gap-1.5"
             :class="activeTab === tab
               ? 'bg-background shadow-sm text-foreground'
               : 'text-muted-foreground hover:text-foreground'"
@@ -187,10 +152,17 @@ function getStatusColor(status: string) {
           >
             {{ tab }}
             <span
-              v-if="tab === 'pending' && stats.pending > 0"
-              class="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full"
+              v-if="getTabCount(tab) > 0"
+              class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full"
+              :class="[
+                tab === 'pending' && activeTab !== tab ? 'text-white bg-red-500' : '',
+                tab === 'pending' && activeTab === tab ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15' : '',
+                tab === 'approved' ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/15' : '',
+                tab === 'rejected' ? 'text-red-700 dark:text-red-300 bg-red-500/15' : '',
+                tab === 'all' ? 'text-foreground bg-muted-foreground/10' : '',
+              ]"
             >
-              {{ stats.pending }}
+              {{ getTabCount(tab) }}
             </span>
           </button>
         </div>
@@ -225,7 +197,7 @@ function getStatusColor(status: string) {
 
         <div v-else-if="filteredUsers.length === 0" class="flex flex-col items-center justify-center gap-3 py-16">
           <div class="flex items-center justify-center size-14 rounded-2xl bg-muted">
-            <Users class="w-7 h-7 text-muted-foreground/40" />
+            <Icon name="i-lucide-users" class="w-7 h-7 text-muted-foreground/40" />
           </div>
           <p class="text-sm text-muted-foreground">No {{ activeTab === 'all' ? '' : activeTab }} users found</p>
         </div>
