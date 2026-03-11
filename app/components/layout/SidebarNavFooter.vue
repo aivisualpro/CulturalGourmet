@@ -57,12 +57,6 @@ const { logout } = useAuth()
                 Profile
               </NuxtLink>
             </DropdownMenuItem>
-            <DropdownMenuItem as-child>
-              <NuxtLink to="/settings/account" class="flex items-center gap-2 cursor-pointer">
-                <Icon name="i-lucide-settings" class="size-4" />
-                Settings
-              </NuxtLink>
-            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem class="text-destructive cursor-pointer" @click="logout">

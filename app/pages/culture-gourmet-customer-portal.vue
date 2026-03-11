@@ -82,7 +82,7 @@ const hoveredCard = ref<string | null>(null)
           </div>
         </div>
         <p class="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-          These streamlined order forms are designed for your customers to easily submit event and catering inquiries. Each form saves directly to your orders database for seamless tracking.
+          These streamlined order forms are designed for your customers to easily submit event and catering inquiries. Use the <strong class="text-foreground">share button</strong> on each card to send the link via email, SMS, or generate a QR code. No login required for customers.
         </p>
       </div>
     </div>
@@ -136,13 +136,20 @@ const hoveredCard = ref<string | null>(null)
                   <p class="text-xs text-muted-foreground mt-0.5">{{ item.subtitle }}</p>
                 </div>
               </div>
-              <Badge
-                variant="outline"
-                class="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 transition-colors"
-                :class="`text-${item.color}-600 dark:text-${item.color}-400 border-${item.color}-500/20`"
-              >
-                {{ item.badge }}
-              </Badge>
+              <div class="flex items-center gap-2">
+                <ShareButton
+                  :url="item.link"
+                  :title="item.title"
+                  :description="item.description"
+                />
+                <Badge
+                  variant="outline"
+                  class="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 transition-colors"
+                  :class="`text-${item.color}-600 dark:text-${item.color}-400 border-${item.color}-500/20`"
+                >
+                  {{ item.badge }}
+                </Badge>
+              </div>
             </div>
 
             <!-- Description -->

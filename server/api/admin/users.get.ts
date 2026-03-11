@@ -17,8 +17,12 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const status = query.status as string || 'pending'
 
-  const filter: Record<string, any> = { role: { $ne: 'super_admin' } }
-  if (status !== 'all') {
+  const filter: Record<string, any> = {}
+  if (status === 'all') {
+    // Show everyone including admins
+  }
+  else {
+    filter.role = { $ne: 'super_admin' }
     filter.approvalStatus = status
   }
 

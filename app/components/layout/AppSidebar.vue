@@ -20,8 +20,6 @@ const sidebarUser = computed(() => ({
 }))
 
 const { sidebar } = useAppSettings()
-
-const showThemeDialog = ref(false)
 </script>
 
 <template>
@@ -39,14 +37,6 @@ const showThemeDialog = ref(false)
       </SidebarGroup>
       <SidebarGroup class="mt-auto">
         <component :is="resolveNavItemComponent(item)" v-for="(item, index) in navMenuBottom" :key="index" :item="item" size="sm" />
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="sm" class="gap-2.5" @click="showThemeDialog = true">
-              <Icon name="i-lucide-paintbrush" class="size-4" />
-              <span>Theme</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
       </SidebarGroup>
     </SidebarContent>
     <SidebarFooter>
@@ -54,21 +44,4 @@ const showThemeDialog = ref(false)
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>
-
-  <Dialog v-model:open="showThemeDialog">
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Customize</DialogTitle>
-        <DialogDescription class="text-xs text-muted-foreground">
-          Customize & Preview in Real Time
-        </DialogDescription>
-      </DialogHeader>
-      <ThemeCustomize />
-    </DialogContent>
-  </Dialog>
 </template>
-
-<style scoped>
-
-</style>
-

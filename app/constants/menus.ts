@@ -10,6 +10,11 @@ export const navMenu: NavMenu[] = [
         link: '/',
       },
       {
+        title: 'Users Management',
+        icon: 'i-lucide-users-round',
+        link: '/users-management',
+      },
+      {
         title: 'External Links',
         icon: 'i-lucide-external-link',
         link: '/culture-gourmet-customer-portal',
