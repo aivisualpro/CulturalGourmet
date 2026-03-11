@@ -35,7 +35,6 @@ const UserSchema = new mongoose.Schema({
 })
 
 // Index for fast lookups
-UserSchema.index({ email: 1 })
 UserSchema.index({ approvalStatus: 1 })
 UserSchema.index({ role: 1 })
 

@@ -1,5 +1,5 @@
 import { User } from '../../models/User'
-import { getSession } from '../../utils/auth'
+import { getUserSession } from '../../utils/auth'
 
 export default defineEventHandler(async (event) => {
   const authHeader = getHeader(event, 'authorization')
@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const token = authHeader.slice(7)
-  const session = getSession(token)
+  const session = getUserSession(token)
   if (!session) {
     throw createError({ statusCode: 401, message: 'Session expired' })
   }

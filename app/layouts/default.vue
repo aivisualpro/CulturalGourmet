@@ -29,6 +29,10 @@ onMounted(() => {
           <div class="size-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
           <p class="text-sm text-muted-foreground">Loading...</p>
         </div>
+        <!-- Hidden slot to prevent Nuxt warning about unused generic page routes -->
+        <div class="hidden">
+          <slot />
+        </div>
       </div>
     </template>
   </SidebarProvider>

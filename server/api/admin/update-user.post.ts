@@ -1,5 +1,5 @@
 import { User } from '../../models/User'
-import { getSession } from '../../utils/auth'
+import { getUserSession } from '../../utils/auth'
 
 export default defineEventHandler(async (event) => {
   // Verify admin session
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const token = authHeader.slice(7)
-  const session = getSession(token)
+  const session = getUserSession(token)
   if (!session || session.role !== 'super_admin') {
     throw createError({ statusCode: 403, message: 'Admin access required' })
   }

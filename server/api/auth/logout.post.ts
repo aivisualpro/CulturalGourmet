@@ -1,4 +1,4 @@
-import { deleteSession, getSession } from '../../utils/auth'
+import { deleteSession, getUserSession } from '../../utils/auth'
 
 export default defineEventHandler(async (event) => {
   const authHeader = getHeader(event, 'authorization')

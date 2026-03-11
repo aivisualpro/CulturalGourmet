@@ -41,7 +41,7 @@ export function createSession(userId: string, email: string, role: string): stri
   return `${encoded}.${signature}`
 }
 
-export function getSession(token: string): { userId: string, email: string, role: string, expiresAt: number } | null {
+export function getUserSession(token: string): { userId: string, email: string, role: string, expiresAt: number } | null {
   try {
     const parts = token.split('.')
     if (parts.length !== 2) return null
