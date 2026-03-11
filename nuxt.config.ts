@@ -6,6 +6,11 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     mongodbUri: '',
+    googleClientId: '',
+    googleClientSecret: '',
+    public: {
+      googleClientId: '',
+    },
   },
 
 

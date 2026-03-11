@@ -11,15 +11,13 @@ function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): an
 
 const appName = 'The Culture Gourmet'
 
-const user: {
-  name: string
-  email: string
-  avatar: string
-} = {
-  name: 'Adeel Jabbar',
-  email: 'adeel@aivisualpro.com',
-  avatar: '/avatars/adeel.png',
-}
+const { user: authUser } = useAuth()
+
+const sidebarUser = computed(() => ({
+  name: authUser.value?.name || 'Guest',
+  email: authUser.value?.email || '',
+  avatar: authUser.value?.avatar || '',
+}))
 
 const { sidebar } = useAppSettings()
 
@@ -52,7 +50,7 @@ const showThemeDialog = ref(false)
       </SidebarGroup>
     </SidebarContent>
     <SidebarFooter>
-      <LayoutSidebarNavFooter :user="user" />
+      <LayoutSidebarNavFooter :user="sidebarUser" />
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>

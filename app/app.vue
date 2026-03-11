@@ -8,6 +8,12 @@ const colorMode = useColorMode()
 const color = computed(() => colorMode.value === 'dark' ? '#09090b' : '#ffffff')
 const { theme } = useAppSettings()
 
+// Initialize auth from localStorage
+const { initAuth } = useAuth()
+onMounted(() => {
+  initAuth()
+})
+
 useHead({
   meta: [
     { charset: 'utf-8' },
