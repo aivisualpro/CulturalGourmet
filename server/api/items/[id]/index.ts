@@ -1,4 +1,4 @@
-import { Item } from '../../models/Item'
+import { Item } from '../../../models/Item'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')

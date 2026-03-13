@@ -152,7 +152,7 @@ async function handleReset() { search.value = ''; await fetchItems(); toast.info
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="fi in filtered" :key="fi._id" class="group">
+            <TableRow v-for="fi in filtered" :key="fi._id" class="group cursor-pointer hover:bg-muted/30 transition-colors" @click="navigateTo(`/inventory/items/${fi._id}`)">
               <TableCell><span class="text-sm font-mono">{{ fi.itemSKU || '—' }}</span></TableCell>
               <TableCell><span class="font-medium text-sm">{{ fi.item }}</span></TableCell>
               <TableCell>
@@ -169,8 +169,9 @@ async function handleReset() { search.value = ''; await fetchItems(); toast.info
               </TableCell>
               <TableCell class="text-right">
                 <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" class="size-8" @click="openEdit(fi)"><Icon name="i-lucide-pencil" class="size-3.5" /></Button>
-                  <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click="confirmDelete(fi)"><Icon name="i-lucide-trash-2" class="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon" class="size-8" title="View transactions" @click.stop="navigateTo(`/inventory/items/${fi._id}`)"><Icon name="i-lucide-eye" class="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon" class="size-8" @click.stop="openEdit(fi)"><Icon name="i-lucide-pencil" class="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click.stop="confirmDelete(fi)"><Icon name="i-lucide-trash-2" class="size-3.5" /></Button>
                 </div>
               </TableCell>
             </TableRow>

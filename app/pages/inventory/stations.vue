@@ -3,7 +3,7 @@ import { toast } from 'vue-sonner'
 import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 
 const { setHeader } = usePageHeader()
-setHeader({ title: 'Locations', icon: 'i-lucide-map-pin' })
+setHeader({ title: 'Stations', icon: 'i-lucide-map-pin' })
 
 const locations = ref<any[]>([])
 const loading = ref(true)
@@ -19,7 +19,7 @@ const formData = ref({ name: '', address: '', phone: '', notes: '' })
 async function fetchLocations() {
   loading.value = true
   try { locations.value = await $fetch('/api/locations') }
-  catch { toast.error('Failed to load locations') }
+  catch { toast.error('Failed to load stations') }
   finally { loading.value = false }
 }
 
@@ -48,21 +48,21 @@ function openEdit(loc: any) {
 }
 
 async function handleSave() {
-  if (!formData.value.name.trim()) { toast.error('Location name is required'); return }
+  if (!formData.value.name.trim()) { toast.error('Station name is required'); return }
   saving.value = true
   try {
     if (editingLoc.value) {
       await $fetch(`/api/locations/${editingLoc.value._id}`, { method: 'PUT', body: formData.value })
-      toast.success('Location updated')
+      toast.success('Station updated')
     }
     else {
       await $fetch('/api/locations', { method: 'POST', body: formData.value })
-      toast.success('Location created')
+      toast.success('Station created')
     }
     showDialog.value = false
     await fetchLocations()
   }
-  catch { toast.error('Failed to save location') }
+  catch { toast.error('Failed to save station') }
   finally { saving.value = false }
 }
 
@@ -72,12 +72,12 @@ async function handleDelete() {
   if (!deletingLoc.value) return
   try {
     await $fetch(`/api/locations/${deletingLoc.value._id}`, { method: 'DELETE' })
-    toast.success('Location deleted')
+    toast.success('Station deleted')
     showDeleteDialog.value = false
     deletingLoc.value = null
     await fetchLocations()
   }
-  catch { toast.error('Failed to delete location') }
+  catch { toast.error('Failed to delete station') }
 }
 
 async function handleReset() { search.value = ''; await fetchLocations(); toast.info('Refreshed') }
@@ -88,7 +88,7 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
     <div class="flex items-center gap-2">
       <div class="relative hidden sm:block">
         <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-        <Input v-model="search" placeholder="Search locations..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
+        <Input v-model="search" placeholder="Search stations..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
       </div>
       <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
         {{ filtered.length }} record{{ filtered.length !== 1 ? 's' : '' }}
@@ -97,7 +97,7 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
         <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />Reset
       </Button>
       <Button size="sm" class="h-8 text-xs" @click="openCreate">
-        <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Location
+        <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Station
       </Button>
     </div>
   </Teleport>
@@ -105,7 +105,7 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
   <div class="w-full flex flex-col gap-6">
     <div class="sm:hidden relative">
       <Icon name="i-lucide-search" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-      <Input v-model="search" placeholder="Search locations..." class="pl-9" />
+      <Input v-model="search" placeholder="Search stations..." class="pl-9" />
     </div>
 
     <Card v-if="loading" class="p-6">
@@ -117,7 +117,7 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Location</TableHead>
+              <TableHead>Station</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Notes</TableHead>
@@ -164,8 +164,8 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
             <TableRow v-if="filtered.length === 0">
               <TableCell :colspan="6" class="h-32 text-center">
                 <div class="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Icon name="i-lucide-inbox" class="size-8" /><p>No locations found</p>
-                  <Button size="sm" variant="outline" @click="openCreate"><Icon name="i-lucide-plus" class="mr-1 size-4" />Add Location</Button>
+                  <Icon name="i-lucide-inbox" class="size-8" /><p>No stations found</p>
+                  <Button size="sm" variant="outline" @click="openCreate"><Icon name="i-lucide-plus" class="mr-1 size-4" />Add Station</Button>
                 </div>
               </TableCell>
             </TableRow>
@@ -177,8 +177,8 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
     <Dialog v-model:open="showDialog">
       <DialogContent class="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>{{ editingLoc ? 'Edit' : 'New' }} Location</DialogTitle>
-          <DialogDescription class="sr-only">{{ editingLoc ? 'Edit' : 'Create' }} a location</DialogDescription>
+          <DialogTitle>{{ editingLoc ? 'Edit' : 'New' }} Station</DialogTitle>
+          <DialogDescription class="sr-only">{{ editingLoc ? 'Edit' : 'Create' }} a station</DialogDescription>
         </DialogHeader>
         <form class="space-y-4" @submit.prevent="handleSave">
           <div class="space-y-2"><Label for="locName">Name <span class="text-destructive">*</span></Label><Input id="locName" v-model="formData.name" placeholder="e.g. Main Kitchen" /></div>
@@ -198,7 +198,7 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
     <AlertDialog v-model:open="showDeleteDialog">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Location?</AlertDialogTitle>
+          <AlertDialogTitle>Delete Station?</AlertDialogTitle>
           <AlertDialogDescription>This will permanently delete <strong>{{ deletingLoc?.name }}</strong>. This action cannot be undone.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
