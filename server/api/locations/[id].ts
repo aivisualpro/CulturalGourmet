@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   if (method === 'PUT') {
     const body = await readBody(event)
-    const loc = await Location.findByIdAndUpdate(id, body, { new: true, runValidators: true }).lean()
+    const loc = await Location.findByIdAndUpdate(id, body, { returnDocument: 'after', runValidators: true }).lean()
     if (!loc) throw createError({ statusCode: 404, statusMessage: 'Location not found' })
     return loc
   }

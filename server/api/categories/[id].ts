@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   // PUT /api/categories/:id
   if (method === 'PUT') {
     const body = await readBody(event)
-    const cat = await Category.findByIdAndUpdate(id, body, { new: true, runValidators: true }).lean()
+    const cat = await Category.findByIdAndUpdate(id, body, { returnDocument: 'after', runValidators: true }).lean()
     if (!cat) throw createError({ statusCode: 404, statusMessage: 'Category not found' })
     return cat
   }

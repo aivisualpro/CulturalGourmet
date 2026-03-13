@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   // PUT /api/consumptions/:id
   if (method === 'PUT') {
     const body = await readBody(event)
-    const item = await Consumption.findByIdAndUpdate(id, body, { new: true, runValidators: true }).lean()
+    const item = await Consumption.findByIdAndUpdate(id, body, { returnDocument: 'after', runValidators: true }).lean()
     if (!item) throw createError({ statusCode: 404, statusMessage: 'Consumption not found' })
     return item
   }

@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   // PUT /api/vendors/:id — update a vendor
   if (method === 'PUT') {
     const body = await readBody(event)
-    const vendor = await Vendor.findByIdAndUpdate(id, body, { new: true, runValidators: true }).lean()
+    const vendor = await Vendor.findByIdAndUpdate(id, body, { returnDocument: 'after', runValidators: true }).lean()
     if (!vendor) {
       throw createError({ statusCode: 404, statusMessage: 'Vendor not found' })
     }
