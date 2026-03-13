@@ -187,7 +187,6 @@ async function handleDelete() {
   catch { toast.error('Failed to delete prep entry') }
 }
 
-async function handleReset() { search.value = ''; await fetchPrepEntries(); toast.info('Refreshed') }
 </script>
 
 <template>
@@ -200,9 +199,7 @@ async function handleReset() { search.value = ''; await fetchPrepEntries(); toas
       <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
         {{ filtered.length }} record{{ filtered.length !== 1 ? 's' : '' }}
       </p>
-      <Button variant="ghost" size="sm" class="h-8 text-xs" @click="handleReset">
-        <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />Reset
-      </Button>
+
       <Button size="sm" class="h-8 text-xs" @click="openCreate">
         <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Prep
       </Button>
