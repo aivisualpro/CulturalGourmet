@@ -160,21 +160,14 @@ export function useDataStore() {
     inflight = null
   }
 
+  // Use toRefs instead of computed — toRefs doesn't require
+  // an active component instance, so useDataStore() can safely
+  // be called from event handlers, plugins, and other non-setup contexts.
+  const refs = toRefs(state)
+
   return {
     // Reactive state (read-only access for pages)
-    dashboard: computed(() => state.dashboard),
-    categories: computed(() => state.categories),
-    vendors: computed(() => state.vendors),
-    locations: computed(() => state.locations),
-    recipes: computed(() => state.recipes),
-    items: computed(() => state.items),
-    consumptions: computed(() => state.consumptions),
-    preps: computed(() => state.preps),
-    prepList: computed(() => state.prepList),
-
-    // Meta
-    ready: computed(() => state.ready),
-    loading: computed(() => state.loading),
+    ...refs,
 
     // Actions — prefetch all or refresh individual slices
     prefetchAll,
