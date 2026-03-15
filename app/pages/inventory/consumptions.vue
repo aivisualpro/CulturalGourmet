@@ -6,8 +6,9 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Consumptions', icon: 'i-lucide-flame' })
 
 // ─── State ──────────────────────────────────────────────────
+const store = useDataStore()
 const activeTab = ref<'daily' | 'weekly'>('daily')
-const categories = ref<any[]>([])
+const categories = computed(() => store.categories.value)
 const entries = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -106,24 +107,17 @@ const editAvailableSubCategories = computed(() => {
   return cat?.subCategories?.filter((s: any) => s.status === 'active') || []
 })
 
-// ─── Fetch ──────────────────────────────────────────────────
-async function fetchCategories() {
-  try {
-    categories.value = await $fetch('/api/categories')
-  }
-  catch {
-    toast.error('Failed to load categories')
-  }
-}
+// ─── Fetch entries (date-specific, stays local) ─────────────
+const _fetch = $fetch as typeof $fetch<any, any>
 
 async function fetchEntries() {
   loading.value = true
   try {
     if (activeTab.value === 'daily') {
-      entries.value = await $fetch('/api/consumptions', { params: { date: selectedDate.value } })
+      entries.value = await _fetch('/api/consumptions', { params: { date: selectedDate.value } })
     }
     else {
-      entries.value = await $fetch('/api/consumptions', {
+      entries.value = await _fetch('/api/consumptions', {
         params: {
           from: formatLocalDate(weekMonday.value),
           to: formatLocalDate(weekSunday.value),
@@ -140,7 +134,6 @@ async function fetchEntries() {
 }
 
 onMounted(async () => {
-  await fetchCategories()
   await fetchEntries()
 })
 

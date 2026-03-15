@@ -61,6 +61,10 @@ export function useAuth() {
     }
     token.value = null
     user.value = null
+
+    // Clear global data cache
+    try { useDataStore().reset() } catch {}
+
     if (import.meta.client) {
       localStorage.removeItem(AUTH_TOKEN_KEY)
       localStorage.removeItem(AUTH_USER_KEY)

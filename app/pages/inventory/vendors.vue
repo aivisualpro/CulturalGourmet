@@ -6,9 +6,10 @@ import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Vendors', icon: 'i-lucide-truck' })
 
-// ─── State ──────────────────────────────────────────────────
-const vendors = ref<any[]>([])
-const loading = ref(true)
+// ─── Global Data Store ──────────────────────────────────────
+const store = useDataStore()
+const vendors = computed(() => store.vendors.value)
+const loading = computed(() => !store.ready.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -24,21 +25,10 @@ const formData = ref({
   contacts: [] as { name: string, email: string, phone: string }[],
 })
 
-// ─── Fetch ──────────────────────────────────────────────────
+// ─── Refresh from store ─────────────────────────────────────
 async function fetchVendors() {
-  loading.value = true
-  try {
-    vendors.value = await $fetch('/api/vendors')
-  }
-  catch {
-    toast.error('Failed to load vendors')
-  }
-  finally {
-    loading.value = false
-  }
+  await store.fetchVendors()
 }
-
-onMounted(fetchVendors)
 
 // ─── Computed ───────────────────────────────────────────────
 const filteredVendors = computed(() => {

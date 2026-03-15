@@ -21,8 +21,9 @@ const emit = defineEmits<{
 
 const open = ref(false)
 const searchQuery = ref('')
-const items = ref<any[]>([])
-const loadingItems = ref(false)
+const store = useDataStore()
+const items = computed(() => store.items.value)
+const loadingItems = computed(() => !store.ready.value)
 const showCreateForm = ref(false)
 const savingNew = ref(false)
 
@@ -34,20 +35,13 @@ const newItemForm = ref({
   unit: '',
 })
 
-// Fetch items
 async function fetchItems() {
-  loadingItems.value = true
-  try {
-    items.value = await $fetch('/api/items')
-  }
-  catch { /* silent */ }
-  finally { loadingItems.value = false }
+  await store.fetchItems()
 }
 
-// Load items when popover opens
+// Reset search when popover opens
 watch(open, (isOpen) => {
   if (isOpen) {
-    fetchItems()
     searchQuery.value = ''
     showCreateForm.value = false
   }

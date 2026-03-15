@@ -5,10 +5,11 @@ import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Master Prep List', icon: 'i-lucide-clipboard-list' })
 
-// ─── State ──────────────────────────────────────────────────
-const prepItems = ref<any[]>([])
-const recipes = ref<any[]>([])
-const loading = ref(true)
+// ─── Global Data Store ──────────────────────────────────────
+const store = useDataStore()
+const prepItems = computed(() => store.prepList.value)
+const recipes = computed(() => store.recipes.value)
+const loading = computed(() => !store.ready.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -25,26 +26,11 @@ const defaultForm = () => ({
 
 const formData = ref(defaultForm())
 
-// ─── Fetch ──────────────────────────────────────────────────
-// Cast $fetch to avoid Nuxt's deeply recursive route type resolution
-// that causes "Excessive stack depth comparing types" with many API routes
 const _fetch = $fetch as typeof $fetch<any, any>
 
 async function fetchPrepItems() {
-  loading.value = true
-  try { prepItems.value = await _fetch('/api/prep-list') }
-  catch { toast.error('Failed to load prep list') }
-  finally { loading.value = false }
+  await store.fetchPrepList()
 }
-
-async function fetchRecipes() {
-  try { recipes.value = await _fetch('/api/recipes') }
-  catch { /* silent */ }
-}
-
-onMounted(async () => {
-  await Promise.all([fetchPrepItems(), fetchRecipes()])
-})
 
 // ─── Computed ───────────────────────────────────────────────
 const filtered = computed(() => {

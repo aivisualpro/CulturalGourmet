@@ -7,8 +7,9 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Items', icon: 'i-lucide-package' })
 
 // ─── State ──────────────────────────────────────────────────
-const items = ref<any[]>([])
-const loading = ref(true)
+const store = useDataStore()
+const items = computed(() => store.items.value)
+const loading = computed(() => !store.ready.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -26,17 +27,9 @@ const defaultForm = () => ({
 
 const formData = ref(defaultForm())
 
-// ─── Fetch ──────────────────────────────────────────────────
 async function fetchItems() {
-  loading.value = true
-  try { items.value = await $fetch('/api/items') }
-  catch { toast.error('Failed to load items') }
-  finally { loading.value = false }
+  await store.fetchItems()
 }
-
-onMounted(async () => {
-  await fetchItems()
-})
 
 // ─── Computed ───────────────────────────────────────────────
 const filtered = computed(() => {

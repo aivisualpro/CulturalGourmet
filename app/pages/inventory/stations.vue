@@ -5,8 +5,9 @@ import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Stations', icon: 'i-lucide-map-pin' })
 
-const locations = ref<any[]>([])
-const loading = ref(true)
+const store = useDataStore()
+const locations = computed(() => store.locations.value)
+const loading = computed(() => !store.ready.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -17,13 +18,8 @@ const saving = ref(false)
 const formData = ref({ name: '', address: '', phone: '', notes: '' })
 
 async function fetchLocations() {
-  loading.value = true
-  try { locations.value = await $fetch('/api/locations') }
-  catch { toast.error('Failed to load stations') }
-  finally { loading.value = false }
+  await store.fetchLocations()
 }
-
-onMounted(fetchLocations)
 
 const filtered = computed(() => {
   if (!search.value) return locations.value

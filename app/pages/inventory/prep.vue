@@ -6,11 +6,12 @@ import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Prep', icon: 'i-lucide-cooking-pot' })
 
-// ─── State ──────────────────────────────────────────────────
-const prepEntries = ref<any[]>([])
-const stations = ref<any[]>([])
-const prepItems = ref<any[]>([])
-const loading = ref(true)
+// ─── Global Data Store ──────────────────────────────────────
+const store = useDataStore()
+const prepEntries = computed(() => store.preps.value)
+const stations = computed(() => store.locations.value)
+const prepItems = computed(() => store.prepList.value)
+const loading = computed(() => !store.ready.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -32,29 +33,11 @@ const defaultForm = () => ({
 
 const formData = ref(defaultForm())
 
-// ─── Fetch ──────────────────────────────────────────────────
 const _fetch = $fetch as typeof $fetch<any, any>
 
 async function fetchPrepEntries() {
-  loading.value = true
-  try { prepEntries.value = await _fetch('/api/preps') }
-  catch { toast.error('Failed to load prep entries') }
-  finally { loading.value = false }
+  await store.fetchPreps()
 }
-
-async function fetchStations() {
-  try { stations.value = await _fetch('/api/locations') }
-  catch { /* silent */ }
-}
-
-async function fetchPrepItems() {
-  try { prepItems.value = await _fetch('/api/prep-list') }
-  catch { /* silent */ }
-}
-
-onMounted(async () => {
-  await Promise.all([fetchPrepEntries(), fetchStations(), fetchPrepItems()])
-})
 
 // ─── Station Tabs ───────────────────────────────────────────
 const stationTabs = computed(() => {

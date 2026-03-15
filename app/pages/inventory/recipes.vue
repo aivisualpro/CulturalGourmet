@@ -7,8 +7,9 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Recipes', icon: 'i-lucide-chef-hat' })
 
 // ─── State ──────────────────────────────────────────────────
-const recipes = ref<any[]>([])
-const loading = ref(true)
+const store = useDataStore()
+const recipes = computed(() => store.recipes.value)
+const loading = computed(() => !store.ready.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -45,15 +46,9 @@ const defaultForm = () => ({
 
 const formData = ref(defaultForm())
 
-// ─── Fetch ──────────────────────────────────────────────────
 async function fetchRecipes() {
-  loading.value = true
-  try { recipes.value = await $fetch('/api/recipes') }
-  catch { toast.error('Failed to load recipes') }
-  finally { loading.value = false }
+  await store.fetchRecipes()
 }
-
-onMounted(fetchRecipes)
 
 // ─── Computed ───────────────────────────────────────────────
 const filtered = computed(() => {

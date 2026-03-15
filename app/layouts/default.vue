@@ -1,11 +1,21 @@
 <script setup lang="ts">
 const { isAuthenticated, initAuth } = useAuth()
+const { prefetchAll } = useDataStore()
 const authChecked = ref(false)
 
 onMounted(() => {
   initAuth()
   authChecked.value = true
 })
+
+// Once auth is confirmed, prefetch all data globally
+watch(
+  () => authChecked.value && isAuthenticated.value,
+  (ready) => {
+    if (ready) prefetchAll()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

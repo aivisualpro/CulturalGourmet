@@ -22,23 +22,19 @@ const catOpen = ref(false)
 const subOpen = ref(false)
 const catSearch = ref('')
 const subSearch = ref('')
-const categories = ref<any[]>([])
-const loadingCats = ref(false)
+const store = useDataStore()
+const categories = computed(() => store.categories.value)
+const loadingCats = computed(() => !store.ready.value)
 const creatingCat = ref(false)
 const creatingSub = ref(false)
 
 async function fetchCategories() {
-  loadingCats.value = true
-  try {
-    categories.value = await $fetch('/api/categories')
-  }
-  catch { /* silent */ }
-  finally { loadingCats.value = false }
+  await store.fetchCategories()
 }
 
-// Load categories when either popover opens
-watch(catOpen, (v) => { if (v) { fetchCategories(); catSearch.value = '' } })
-watch(subOpen, (v) => { if (v) { fetchCategories(); subSearch.value = '' } })
+// Reset search when popovers open
+watch(catOpen, (v) => { if (v) catSearch.value = '' })
+watch(subOpen, (v) => { if (v) subSearch.value = '' })
 
 // ─── Category logic ─────────────────────────────
 const filteredCats = computed(() => {

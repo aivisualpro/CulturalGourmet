@@ -5,9 +5,10 @@ import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Categories', icon: 'i-lucide-tags' })
 
-// ─── State ──────────────────────────────────────────────────
-const categories = ref<any[]>([])
-const loading = ref(true)
+// ─── Global Data Store ──────────────────────────────────────
+const store = useDataStore()
+const categories = computed(() => store.categories.value)
+const loading = computed(() => !store.ready.value)
 const search = ref('')
 const saving = ref(false)
 
@@ -138,21 +139,10 @@ function getColor(color?: string) {
   return colorMap[color ?? ''] ?? defaultColor
 }
 
-// ─── Fetch ──────────────────────────────────────────────────
+// ─── Refresh from store ─────────────────────────────────────
 async function fetchCategories() {
-  loading.value = true
-  try {
-    categories.value = await $fetch('/api/categories')
-  }
-  catch {
-    toast.error('Failed to load categories')
-  }
-  finally {
-    loading.value = false
-  }
+  await store.fetchCategories()
 }
-
-onMounted(fetchCategories)
 
 // ─── Computed ───────────────────────────────────────────────
 const filteredCategories = computed(() => {

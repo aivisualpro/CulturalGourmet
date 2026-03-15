@@ -16,9 +16,10 @@ import {
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Dashboard', icon: 'i-lucide-layout-dashboard', description: 'Overview of key metrics and performance' })
 
-// ─── State ──────────────────────────────────────────────────
-const loading = ref(true)
-const dashboard = ref<any>(null)
+// ─── Global Data Store (prefetched, instant) ────────────────
+const store = useDataStore()
+const dashboard = store.dashboard
+const loading = computed(() => !store.ready)
 
 // ─── Animated KPI values (for NumberFlow) ───────────────────
 const kpis = reactive({
@@ -34,33 +35,19 @@ const kpis = reactive({
 // ─── Chart time range ───────────────────────────────────────
 const chartRange = ref<'30d' | '12w'>('30d')
 
-// ─── Fetch dashboard data ───────────────────────────────────
-async function fetchDashboard() {
-  loading.value = true
-  try {
-    const data = await $fetch('/api/dashboard')
-    dashboard.value = data
-
-    // Animate KPIs
-    nextTick(() => {
-      kpis.totalSpend = data.kpis.totalSpend
-      kpis.thisMonthSpend = data.kpis.thisMonthSpend
-      kpis.todaySpend = data.kpis.todaySpend
-      kpis.totalCategories = data.kpis.totalCategories
-      kpis.totalVendors = data.kpis.totalVendors
-      kpis.totalConsumptions = data.kpis.totalConsumptions
-      kpis.monthlyTrend = Math.round(data.kpis.monthlyTrend * 10) / 10
-    })
-  }
-  catch {
-    console.error('Failed to fetch dashboard data')
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => fetchDashboard())
+// Animate KPIs when data arrives (or is already available)
+watch(dashboard, (data) => {
+  if (!data?.kpis) return
+  nextTick(() => {
+    kpis.totalSpend = data.kpis.totalSpend
+    kpis.thisMonthSpend = data.kpis.thisMonthSpend
+    kpis.todaySpend = data.kpis.todaySpend
+    kpis.totalCategories = data.kpis.totalCategories
+    kpis.totalVendors = data.kpis.totalVendors
+    kpis.totalConsumptions = data.kpis.totalConsumptions
+    kpis.monthlyTrend = Math.round(data.kpis.monthlyTrend * 10) / 10
+  })
+}, { immediate: true })
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatCurrency(val: number): string {
