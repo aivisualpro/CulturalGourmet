@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
+import { watchDebounced } from '@vueuse/core'
 import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 import { getUnitAbbr } from '~/constants/units'
 
@@ -17,6 +18,9 @@ const editingRecipe = ref<any>(null)
 const deletingRecipe = ref<any>(null)
 const viewingRecipe = ref<any>(null)
 const saving = ref(false)
+const isAutoSaving = ref(false)
+const autoSaveError = ref(false)
+const lastSaved = ref<Date | null>(null)
 const activeTab = ref('details')
 
 interface Ingredient {
@@ -45,7 +49,31 @@ const defaultForm = () => ({
 
 const formData = ref(defaultForm())
 
+// ─── Auto-Save (Watch) ──────────────────────────────────────
+watchDebounced(formData, async () => {
+  // Only auto-save if editing an existing recipe, and Name is present
+  if (!editingRecipe.value || !formData.value.recipeName.trim()) return
+  
+  isAutoSaving.value = true
+  autoSaveError.value = false
+  
+  const payload = {
+    ...formData.value,
+    ingredients: formData.value.ingredients.filter(ing => ing.name.trim()),
+    subRecipes: formData.value.subRecipes.filter(sr => sr.recipeName.trim()),
+  }
 
+  try {
+    await $fetch(`/api/recipes/${editingRecipe.value._id}`, { method: 'PUT', body: payload })
+    await fetchRecipes() // Re-fetch to keep inventory metrics consistent locally
+    lastSaved.value = new Date()
+  } catch (error) {
+    console.error('Auto-save failed:', error)
+    autoSaveError.value = true
+  } finally {
+    isAutoSaving.value = false
+  }
+}, { debounce: 1000, deep: true })
 
 // ─── Computed ───────────────────────────────────────────────
 const filtered = computed(() => {
@@ -116,6 +144,8 @@ function selectSubRecipe(index: number, recipe: any) {
 function openCreate() {
   editingRecipe.value = null
   formData.value = defaultForm()
+  lastSaved.value = null
+  autoSaveError.value = false
   activeTab.value = 'details'
   showDialog.value = true
 }
@@ -141,6 +171,8 @@ function openEdit(recipe: any) {
     coolingProcedures: recipe.coolingProcedures || '',
     additionalNotes: recipe.additionalNotes || '',
   }
+  lastSaved.value = null
+  autoSaveError.value = false
   activeTab.value = 'details'
   showDialog.value = true
 }
@@ -482,11 +514,8 @@ async function handleDelete() {
           <div v-show="activeTab === 'ingredients'" class="space-y-6">
             <!-- ── Ingredients Section ── -->
             <div class="space-y-3">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between mt-1">
                 <Label class="text-sm font-semibold">Ingredients</Label>
-                <Button type="button" variant="outline" size="sm" class="h-7 text-xs gap-1.5" @click="addIngredient">
-                  <Icon name="i-lucide-plus" class="size-3" />Add Ingredient
-                </Button>
               </div>
 
               <div v-if="formData.ingredients.length === 0" class="text-center py-6 border border-dashed rounded-lg">
@@ -519,7 +548,7 @@ async function handleDelete() {
                     placeholder="Search items..."
                     @item-selected="(item) => handleItemSelected(index, item)"
                   />
-                  <Input v-model.number="ing.quantity" type="number" step="any" placeholder="0" class="h-8 text-sm" />
+                  <Input v-model.number="ing.quantity" type="number" step="any" min="0" placeholder="0" class="h-8 text-sm" />
                   <UnitSelect
                     v-model="ing.unit"
                     size="sm"
@@ -540,23 +569,28 @@ async function handleDelete() {
                   </Button>
                 </div>
               </div>
+
+              <!-- Add Ingredient Button placed below the table when rows exist -->
+              <Button v-if="formData.ingredients.length > 0" type="button" variant="outline" size="sm" class="w-full h-8 text-xs border-dashed text-muted-foreground hover:text-foreground hover:border-solid mt-2 transition-all group" @click="addIngredient">
+                <Icon name="i-lucide-plus" class="mr-1.5 size-3.5 text-muted-foreground group-hover:text-foreground" /> Add Ingredient
+              </Button>
             </div>
 
             <!-- ── Sub-Recipes Section ── -->
             <div class="space-y-3">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between mt-1">
                 <Label class="text-sm font-semibold flex items-center gap-1.5">
                   <Icon name="i-lucide-chef-hat" class="size-3.5 text-amber-500" />
                   Sub-Recipes
                 </Label>
-                <Button type="button" variant="outline" size="sm" class="h-7 text-xs gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10" @click="addSubRecipe">
-                  <Icon name="i-lucide-plus" class="size-3" />Add Recipe
-                </Button>
               </div>
 
               <div v-if="formData.subRecipes.length === 0" class="text-center py-5 border border-dashed border-amber-500/30 rounded-lg bg-amber-500/5">
                 <Icon name="i-lucide-chef-hat" class="size-5 text-amber-500/50 mx-auto mb-1" />
                 <p class="text-xs text-muted-foreground">Add another recipe as a sub-component</p>
+                <Button type="button" variant="ghost" size="sm" class="mt-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-500/10" @click="addSubRecipe">
+                  <Icon name="i-lucide-plus" class="mr-1 size-3" />Add first sub-recipe
+                </Button>
               </div>
 
               <div v-else class="rounded-lg border border-amber-500/20 overflow-hidden">
@@ -611,7 +645,7 @@ async function handleDelete() {
                     </PopoverContent>
                   </Popover>
 
-                  <Input v-model.number="sr.quantity" type="number" step="any" placeholder="Qty" class="h-8 text-xs" />
+                  <Input v-model.number="sr.quantity" type="number" step="any" min="0" placeholder="Qty" class="h-8 text-xs" />
 
                   <Button
                     type="button"
@@ -624,6 +658,11 @@ async function handleDelete() {
                   </Button>
                 </div>
               </div>
+
+              <!-- Add Recipe Button placed below the table when rows exist -->
+              <Button v-if="formData.subRecipes.length > 0" type="button" variant="outline" size="sm" class="w-full h-8 text-xs border-dashed border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 hover:border-solid mt-2 transition-all group" @click="addSubRecipe">
+                <Icon name="i-lucide-plus" class="mr-1.5 size-3.5 text-amber-600 dark:text-amber-400" /> Add Recipe
+              </Button>
             </div>
           </div>
 
@@ -677,12 +716,30 @@ async function handleDelete() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" type="button" @click="showDialog = false">Cancel</Button>
-            <Button type="submit" :disabled="saving">
-              <Icon v-if="saving" name="i-lucide-loader-2" class="mr-1 size-4 animate-spin" />
-              {{ editingRecipe ? 'Update' : 'Create' }}
-            </Button>
+          <DialogFooter class="flex sm:justify-between items-center w-full">
+            <div class="flex items-center gap-2 text-xs text-muted-foreground mr-auto">
+              <!-- Auto-save indicators only show in edit mode -->
+              <template v-if="editingRecipe">
+                <Icon v-if="isAutoSaving" name="i-lucide-loader-2" class="size-3.5 animate-spin text-primary" />
+                <Icon v-else-if="autoSaveError" name="i-lucide-alert-circle" class="size-3.5 text-destructive" />
+                <Icon v-else-if="lastSaved" name="i-lucide-check-circle-2" class="size-3.5 text-emerald-500" />
+                
+                <span v-if="isAutoSaving" class="text-primary font-medium">Saving changes...</span>
+                <span v-else-if="autoSaveError" class="text-destructive font-medium">Failed to save</span>
+                <span v-else-if="lastSaved">All changes saved</span>
+              </template>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <Button v-if="editingRecipe" variant="outline" type="button" @click="showDialog = false">Done</Button>
+              <template v-else>
+                <Button variant="outline" type="button" @click="showDialog = false">Cancel</Button>
+                <Button type="submit" :disabled="saving">
+                  <Icon v-if="saving" name="i-lucide-loader-2" class="mr-1 size-4 animate-spin" />
+                  Create Recipe
+                </Button>
+              </template>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
