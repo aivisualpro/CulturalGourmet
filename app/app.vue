@@ -70,6 +70,6 @@ const dir = computed(() => textDirection.value === 'rtl' ? 'rtl' : 'ltr')
       <Toaster :theme="colorMode.preference as any || 'system'" />
     </ConfigProvider>
 
-    <Analytics />
+    <Analytics :debug="false" />
   </Body>
 </template>
