@@ -10,7 +10,7 @@ defineProps<{
       <SidebarMenuButton size="lg" as-child>
         <NuxtLink to="/">
           <img
-            src="/the culture gourmet logo.png"
+            src="/logo.png"
             :alt="name"
             class="h-8 w-auto object-contain"
           >

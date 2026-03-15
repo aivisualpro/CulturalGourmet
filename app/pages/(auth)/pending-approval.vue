@@ -40,7 +40,7 @@ async function checkApprovalStatus() {
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('Account Approved! 🎉', {
             body: 'Your Culture Gourmet account has been approved. You can now sign in!',
-            icon: '/the culture gourmet logo.png',
+            icon: '/logo.png',
           })
         }
         toast.success('Your account has been approved!', {

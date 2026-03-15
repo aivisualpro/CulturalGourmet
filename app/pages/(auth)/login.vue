@@ -210,7 +210,7 @@ async function handleGoogleCallback(response: any) {
         <div class="hero-content">
           <div class="hero-logo">
             <img
-              src="/the culture gourmet logo.png"
+              src="/logo.png"
               alt="The Culture Gourmet"
               class="logo-img"
             >
@@ -231,7 +231,7 @@ async function handleGoogleCallback(response: any) {
           <!-- Mobile logo -->
           <div class="mobile-logo">
             <img
-              src="/the culture gourmet logo.png"
+              src="/logo.png"
               alt="The Culture Gourmet"
               class="mobile-logo-img"
             >

@@ -14,7 +14,7 @@ defineProps<{
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_70%,rgba(102,126,234,0.12),transparent_60%)]" />
       <div class="relative z-20 flex items-center text-lg font-medium">
         <img
-          src="/the culture gourmet logo.png"
+          src="/logo.png"
           alt="The Culture Gourmet"
           class="mr-3 h-8 w-8 rounded-lg"
         >

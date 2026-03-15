@@ -54,7 +54,7 @@ async function checkNotifications() {
       if (import.meta.client && 'Notification' in globalThis && Notification.permission === 'granted') {
         new Notification(`${diff} New Registration${diff > 1 ? 's' : ''}`, {
           body: `${diff} user${diff > 1 ? 's are' : ' is'} waiting for approval`,
-          icon: '/the culture gourmet logo.png',
+          icon: '/logo.png',
           tag: 'registration-notification',
         })
       }

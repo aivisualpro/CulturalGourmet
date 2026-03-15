@@ -225,7 +225,7 @@ async function handleGoogleCallback(response: any) {
         <div class="form-wrapper">
           <!-- Mobile logo -->
           <div class="mobile-logo">
-            <img src="/the culture gourmet logo.png" alt="The Culture Gourmet" class="mobile-logo-img">
+            <img src="/logo.png" alt="The Culture Gourmet" class="mobile-logo-img">
           </div>
 
           <NuxtLink to="/login" class="back-link">
@@ -410,7 +410,7 @@ async function handleGoogleCallback(response: any) {
             <span>Join the Community</span>
           </div>
           <div class="hero-logo">
-            <img src="/the culture gourmet logo.png" alt="The Culture Gourmet" class="logo-img">
+            <img src="/logo.png" alt="The Culture Gourmet" class="logo-img">
           </div>
           <h1 class="hero-title">
             Start Your<br><span class="gradient-text">Journey</span>

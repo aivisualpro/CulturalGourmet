@@ -21,7 +21,7 @@ useHead({
     { key: 'theme-color', name: 'theme-color', content: color },
   ],
   link: [
-    { rel: 'icon', type: 'image/png', href: '/the culture gourmet logo.png' },
+    { rel: 'icon', type: 'image/png', href: '/logo.png' },
   ],
   htmlAttrs: {
     lang: 'en',
