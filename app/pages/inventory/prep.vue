@@ -7,11 +7,8 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Prep', icon: 'i-lucide-cooking-pot' })
 
 // ─── Global Data Store ──────────────────────────────────────
-const store = useDataStore()
-const prepEntries = computed(() => store.preps.value)
-const stations = computed(() => store.locations.value)
-const prepItems = computed(() => store.prepList.value)
-const loading = computed(() => !store.ready.value)
+const { preps: prepEntries, locations: stations, prepList: prepItems, ready: storeReady, fetchPreps } = useDataStore()
+const loading = computed(() => !storeReady.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -36,7 +33,7 @@ const formData = ref(defaultForm())
 const _fetch = $fetch as typeof $fetch<any, any>
 
 async function fetchPrepEntries() {
-  await store.fetchPreps()
+  await fetchPreps()
 }
 
 // ─── Station Tabs ───────────────────────────────────────────
@@ -173,7 +170,8 @@ async function handleDelete() {
 </script>
 
 <template>
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
     <div class="flex items-center gap-2">
       <div class="relative hidden sm:block">
         <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -187,7 +185,8 @@ async function handleDelete() {
         <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Prep
       </Button>
     </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-5">
     <!-- Mobile Search -->

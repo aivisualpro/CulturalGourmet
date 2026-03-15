@@ -6,10 +6,8 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Master Prep List', icon: 'i-lucide-clipboard-list' })
 
 // ─── Global Data Store ──────────────────────────────────────
-const store = useDataStore()
-const prepItems = computed(() => store.prepList.value)
-const recipes = computed(() => store.recipes.value)
-const loading = computed(() => !store.ready.value)
+const { prepList: prepItems, recipes, ready: storeReady, fetchPrepList } = useDataStore()
+const loading = computed(() => !storeReady.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -29,7 +27,7 @@ const formData = ref(defaultForm())
 const _fetch = $fetch as typeof $fetch<any, any>
 
 async function fetchPrepItems() {
-  await store.fetchPrepList()
+  await fetchPrepList()
 }
 
 // ─── Computed ───────────────────────────────────────────────
@@ -112,7 +110,8 @@ async function handleDelete() {
 </script>
 
 <template>
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
     <div class="flex items-center gap-2">
       <div class="relative hidden sm:block">
         <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -126,7 +125,8 @@ async function handleDelete() {
         <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Prep Item
       </Button>
     </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-6">
     <!-- Mobile Search -->

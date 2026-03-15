@@ -22,15 +22,10 @@ const catOpen = ref(false)
 const subOpen = ref(false)
 const catSearch = ref('')
 const subSearch = ref('')
-const store = useDataStore()
-const categories = computed(() => store.categories.value)
-const loadingCats = computed(() => !store.ready.value)
+const { categories, ready: storeReady, fetchCategories } = useDataStore()
+const loadingCats = computed(() => !storeReady.value)
 const creatingCat = ref(false)
 const creatingSub = ref(false)
-
-async function fetchCategories() {
-  await store.fetchCategories()
-}
 
 // Reset search when popovers open
 watch(catOpen, (v) => { if (v) catSearch.value = '' })

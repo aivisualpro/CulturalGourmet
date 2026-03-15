@@ -5,9 +5,8 @@ import { HEADER_ACTIONS_ID } from '~/composables/usePageHeader'
 const { setHeader } = usePageHeader()
 setHeader({ title: 'Stations', icon: 'i-lucide-map-pin' })
 
-const store = useDataStore()
-const locations = computed(() => store.locations.value)
-const loading = computed(() => !store.ready.value)
+const { locations, ready: storeReady, fetchLocations } = useDataStore()
+const loading = computed(() => !storeReady.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -17,9 +16,7 @@ const saving = ref(false)
 
 const formData = ref({ name: '', address: '', phone: '', notes: '' })
 
-async function fetchLocations() {
-  await store.fetchLocations()
-}
+
 
 const filtered = computed(() => {
   if (!search.value) return locations.value
@@ -80,23 +77,25 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
 </script>
 
 <template>
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
-    <div class="flex items-center gap-2">
-      <div class="relative hidden sm:block">
-        <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-        <Input v-model="search" placeholder="Search stations..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
+      <div class="flex items-center gap-2">
+        <div class="relative hidden sm:block">
+          <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input v-model="search" placeholder="Search stations..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
+        </div>
+        <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
+          {{ filtered.length }} record{{ filtered.length !== 1 ? 's' : '' }}
+        </p>
+        <Button variant="ghost" size="sm" class="h-8 text-xs" @click="handleReset">
+          <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />Reset
+        </Button>
+        <Button size="sm" class="h-8 text-xs" @click="openCreate">
+          <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Station
+        </Button>
       </div>
-      <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
-        {{ filtered.length }} record{{ filtered.length !== 1 ? 's' : '' }}
-      </p>
-      <Button variant="ghost" size="sm" class="h-8 text-xs" @click="handleReset">
-        <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />Reset
-      </Button>
-      <Button size="sm" class="h-8 text-xs" @click="openCreate">
-        <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Station
-      </Button>
-    </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-6">
     <div class="sm:hidden relative">

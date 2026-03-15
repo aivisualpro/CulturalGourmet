@@ -7,9 +7,8 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Items', icon: 'i-lucide-package' })
 
 // ─── State ──────────────────────────────────────────────────
-const store = useDataStore()
-const items = computed(() => store.items.value)
-const loading = computed(() => !store.ready.value)
+const { items, ready: storeReady, fetchItems } = useDataStore()
+const loading = computed(() => !storeReady.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -27,9 +26,7 @@ const defaultForm = () => ({
 
 const formData = ref(defaultForm())
 
-async function fetchItems() {
-  await store.fetchItems()
-}
+
 
 // ─── Computed ───────────────────────────────────────────────
 const filtered = computed(() => {
@@ -101,7 +98,8 @@ async function handleReset() { search.value = ''; await fetchItems(); toast.info
 </script>
 
 <template>
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
     <div class="flex items-center gap-2">
       <div class="relative hidden sm:block">
         <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -118,7 +116,8 @@ async function handleReset() { search.value = ''; await fetchItems(); toast.info
         <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Item
       </Button>
     </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-6">
     <div class="sm:hidden relative">

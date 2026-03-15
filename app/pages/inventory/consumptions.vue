@@ -6,9 +6,9 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Consumptions', icon: 'i-lucide-flame' })
 
 // ─── State ──────────────────────────────────────────────────
-const store = useDataStore()
+const { categories } = useDataStore()
 const activeTab = ref<'daily' | 'weekly'>('daily')
-const categories = computed(() => store.categories.value)
+
 const entries = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -320,7 +320,8 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
 
 <template>
   <!-- Header Actions (teleported) -->
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
     <div class="flex items-center gap-2">
       <!-- Add Entry button — always rendered, invisible on weekly to prevent layout shift -->
       <Button
@@ -428,7 +429,8 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
         </button>
       </div>
     </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-5">
     <!-- Mobile Tab Switcher -->

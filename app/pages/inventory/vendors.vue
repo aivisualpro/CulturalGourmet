@@ -7,9 +7,8 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Vendors', icon: 'i-lucide-truck' })
 
 // ─── Global Data Store ──────────────────────────────────────
-const store = useDataStore()
-const vendors = computed(() => store.vendors.value)
-const loading = computed(() => !store.ready.value)
+const { vendors, ready: storeReady, fetchVendors } = useDataStore()
+const loading = computed(() => !storeReady.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -25,10 +24,6 @@ const formData = ref({
   contacts: [] as { name: string, email: string, phone: string }[],
 })
 
-// ─── Refresh from store ─────────────────────────────────────
-async function fetchVendors() {
-  await store.fetchVendors()
-}
 
 // ─── Computed ───────────────────────────────────────────────
 const filteredVendors = computed(() => {
@@ -152,29 +147,31 @@ async function handleReset() {
 
 <template>
   <!-- Header Actions (teleported into main header) -->
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
-    <div class="flex items-center gap-2">
-      <div class="relative hidden sm:block">
-        <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-        <Input
-          v-model="search"
-          placeholder="Search vendors..."
-          class="pl-8 h-8 w-48 lg:w-64 text-xs"
-        />
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
+      <div class="flex items-center gap-2">
+        <div class="relative hidden sm:block">
+          <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input
+            v-model="search"
+            placeholder="Search vendors..."
+            class="pl-8 h-8 w-48 lg:w-64 text-xs"
+          />
+        </div>
+        <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
+          {{ filteredVendors.length }} record{{ filteredVendors.length !== 1 ? 's' : '' }}
+        </p>
+        <Button variant="ghost" size="sm" class="h-8 text-xs" @click="handleReset">
+          <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />
+          Reset
+        </Button>
+        <Button size="sm" class="h-8 text-xs" @click="openCreate">
+          <Icon name="i-lucide-plus" class="mr-1 size-3.5" />
+          Add Vendor
+        </Button>
       </div>
-      <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
-        {{ filteredVendors.length }} record{{ filteredVendors.length !== 1 ? 's' : '' }}
-      </p>
-      <Button variant="ghost" size="sm" class="h-8 text-xs" @click="handleReset">
-        <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />
-        Reset
-      </Button>
-      <Button size="sm" class="h-8 text-xs" @click="openCreate">
-        <Icon name="i-lucide-plus" class="mr-1 size-3.5" />
-        Add Vendor
-      </Button>
-    </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-6">
     <!-- Mobile Search -->

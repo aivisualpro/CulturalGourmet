@@ -21,9 +21,8 @@ const emit = defineEmits<{
 
 const open = ref(false)
 const searchQuery = ref('')
-const store = useDataStore()
-const items = computed(() => store.items.value)
-const loadingItems = computed(() => !store.ready.value)
+const { items, ready: storeReady, fetchItems } = useDataStore()
+const loadingItems = computed(() => !storeReady.value)
 const showCreateForm = ref(false)
 const savingNew = ref(false)
 
@@ -34,10 +33,6 @@ const newItemForm = ref({
   subCategory: '',
   unit: '',
 })
-
-async function fetchItems() {
-  await store.fetchItems()
-}
 
 // Reset search when popover opens
 watch(open, (isOpen) => {

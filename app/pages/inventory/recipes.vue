@@ -7,9 +7,8 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Recipes', icon: 'i-lucide-chef-hat' })
 
 // ─── State ──────────────────────────────────────────────────
-const store = useDataStore()
-const recipes = computed(() => store.recipes.value)
-const loading = computed(() => !store.ready.value)
+const { recipes, ready: storeReady, fetchRecipes } = useDataStore()
+const loading = computed(() => !storeReady.value)
 const search = ref('')
 const showDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -46,9 +45,7 @@ const defaultForm = () => ({
 
 const formData = ref(defaultForm())
 
-async function fetchRecipes() {
-  await store.fetchRecipes()
-}
+
 
 // ─── Computed ───────────────────────────────────────────────
 const filtered = computed(() => {
@@ -195,21 +192,23 @@ async function handleDelete() {
 </script>
 
 <template>
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
-    <div class="flex items-center gap-2">
-      <div class="relative hidden sm:block">
-        <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-        <Input v-model="search" placeholder="Search recipes..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
+      <div class="flex items-center gap-2">
+        <div class="relative hidden sm:block">
+          <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input v-model="search" placeholder="Search recipes..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
+        </div>
+        <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
+          {{ filtered.length }} recipe{{ filtered.length !== 1 ? 's' : '' }}
+        </p>
+        <UnitConverter />
+        <Button size="sm" class="h-8 text-xs" @click="openCreate">
+          <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Recipe
+        </Button>
       </div>
-      <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
-        {{ filtered.length }} recipe{{ filtered.length !== 1 ? 's' : '' }}
-      </p>
-      <UnitConverter />
-      <Button size="sm" class="h-8 text-xs" @click="openCreate">
-        <Icon name="i-lucide-plus" class="mr-1 size-3.5" />Add Recipe
-      </Button>
-    </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-6">
     <!-- Mobile Search -->

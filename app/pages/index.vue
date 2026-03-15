@@ -17,9 +17,8 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Dashboard', icon: 'i-lucide-layout-dashboard', description: 'Overview of key metrics and performance' })
 
 // ─── Global Data Store (prefetched, instant) ────────────────
-const store = useDataStore()
-const dashboard = store.dashboard
-const loading = computed(() => !store.ready.value)
+const { dashboard, ready: storeReady } = useDataStore()
+const loading = computed(() => !storeReady.value)
 
 // ─── Animated KPI values (for NumberFlow) ───────────────────
 const kpis = reactive({

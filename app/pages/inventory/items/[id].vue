@@ -141,7 +141,8 @@ const unitLabel = computed(() => {
 </script>
 
 <template>
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
     <div class="flex items-center gap-2">
       <Button variant="ghost" size="sm" class="h-8 text-xs" @click="navigateTo('/inventory/items')">
         <Icon name="i-lucide-arrow-left" class="mr-1 size-3.5" />Back to Items
@@ -151,7 +152,8 @@ const unitLabel = computed(() => {
         <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />Refresh
       </Button>
     </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-5">
     <!-- Loading -->

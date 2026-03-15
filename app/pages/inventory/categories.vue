@@ -6,9 +6,8 @@ const { setHeader } = usePageHeader()
 setHeader({ title: 'Categories', icon: 'i-lucide-tags' })
 
 // ─── Global Data Store ──────────────────────────────────────
-const store = useDataStore()
-const categories = computed(() => store.categories.value)
-const loading = computed(() => !store.ready.value)
+const { categories, ready: storeReady, fetchCategories } = useDataStore()
+const loading = computed(() => !storeReady.value)
 const search = ref('')
 const saving = ref(false)
 
@@ -139,10 +138,7 @@ function getColor(color?: string) {
   return colorMap[color ?? ''] ?? defaultColor
 }
 
-// ─── Refresh from store ─────────────────────────────────────
-async function fetchCategories() {
-  await store.fetchCategories()
-}
+
 
 // ─── Computed ───────────────────────────────────────────────
 const filteredCategories = computed(() => {
@@ -287,21 +283,23 @@ async function handleRefresh() {
 
 <template>
   <!-- Header Actions (teleported) -->
-  <Teleport :to="`#${HEADER_ACTIONS_ID}`">
-    <div class="flex items-center gap-2">
-      <div class="relative hidden sm:block">
-        <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-        <Input v-model="search" placeholder="Search categories..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
+  <ClientOnly>
+    <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
+      <div class="flex items-center gap-2">
+        <div class="relative hidden sm:block">
+          <Icon name="i-lucide-search" class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input v-model="search" placeholder="Search categories..." class="pl-8 h-8 w-48 lg:w-64 text-xs" />
+        </div>
+        <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
+          {{ filteredCategories.length }} categor{{ filteredCategories.length !== 1 ? 'ies' : 'y' }}
+        </p>
+        <Button size="sm" class="h-8 text-xs" @click="openCreateCat">
+          <Icon name="i-lucide-plus" class="mr-1 size-3.5" />
+          Add Category
+        </Button>
       </div>
-      <p class="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden md:block">
-        {{ filteredCategories.length }} categor{{ filteredCategories.length !== 1 ? 'ies' : 'y' }}
-      </p>
-      <Button size="sm" class="h-8 text-xs" @click="openCreateCat">
-        <Icon name="i-lucide-plus" class="mr-1 size-3.5" />
-        Add Category
-      </Button>
-    </div>
-  </Teleport>
+    </Teleport>
+  </ClientOnly>
 
   <div class="w-full flex flex-col gap-6">
     <!-- Mobile Search -->

@@ -1,116 +1,94 @@
 /**
- * useDataStore — Global data prefetch store
+ * useDataStore — Global data prefetch store (SSR-safe)
  *
+ * Uses Nuxt's useState() for SSR-safe shared state.
  * Fetches ALL application data in parallel on login/app-init,
  * then serves it from memory so every route renders instantly.
  *
  * Usage:
  *   const { categories, vendors, recipes, ... } = useDataStore()
- *
- * Each data slice has:
- *   - Reactive data ref
- *   - Individual refresh function
- *   - Ready flag (true once initial load is done)
- *
- * On auth login / app mount, call `prefetchAll()` once.
- * After a mutation (create/update/delete), call the slice's refresh.
  */
-
-interface DataStoreState {
-  // ─── Core lists ───────────────────────────────────────────
-  dashboard: any | null
-  categories: any[]
-  vendors: any[]
-  locations: any[]
-  recipes: any[]
-  items: any[]
-  consumptions: any[]
-  preps: any[]
-  prepList: any[]
-
-  // ─── Meta ─────────────────────────────────────────────────
-  ready: boolean
-  loading: boolean
-  lastFetchedAt: number | null
-}
-
-const STALE_TIME = 5 * 60 * 1000 // 5 minutes
-const _fetch = $fetch as typeof $fetch<any, any>
-
-// Singleton state shared across all component instances
-const state = reactive<DataStoreState>({
-  dashboard: null,
-  categories: [],
-  vendors: [],
-  locations: [],
-  recipes: [],
-  items: [],
-  consumptions: [],
-  preps: [],
-  prepList: [],
-  ready: false,
-  loading: false,
-  lastFetchedAt: null,
-})
 
 // In-flight promise to deduplicate concurrent prefetchAll() calls
 let inflight: Promise<void> | null = null
 
 export function useDataStore() {
+  // SSR-safe shared state via Nuxt's useState
+  const dashboard = useState<any>('ds:dashboard', () => null)
+  const categories = useState<any[]>('ds:categories', () => [])
+  const vendors = useState<any[]>('ds:vendors', () => [])
+  const locations = useState<any[]>('ds:locations', () => [])
+  const recipes = useState<any[]>('ds:recipes', () => [])
+  const items = useState<any[]>('ds:items', () => [])
+  const consumptions = useState<any[]>('ds:consumptions', () => [])
+  const preps = useState<any[]>('ds:preps', () => [])
+  const prepList = useState<any[]>('ds:prepList', () => [])
+  const ready = useState<boolean>('ds:ready', () => false)
+  const loading = useState<boolean>('ds:loading', () => false)
+  const lastFetchedAt = useState<number | null>('ds:lastFetchedAt', () => null)
+
+  const STALE_TIME = 5 * 60 * 1000 // 5 minutes
+
+  // Cast to avoid Nuxt's deep recursive route-type resolution
+  const _fetch = $fetch as typeof $fetch<any, any>
+
   // ─── Individual fetchers ──────────────────────────────────
   async function fetchDashboard() {
-    try { state.dashboard = await _fetch('/api/dashboard') }
+    try { dashboard.value = await _fetch('/api/dashboard') }
     catch (e) { console.error('[DataStore] dashboard fetch failed', e) }
   }
 
   async function fetchCategories() {
-    try { state.categories = await _fetch('/api/categories') }
+    try { categories.value = await _fetch('/api/categories') }
     catch (e) { console.error('[DataStore] categories fetch failed', e) }
   }
 
   async function fetchVendors() {
-    try { state.vendors = await _fetch('/api/vendors') }
+    try { vendors.value = await _fetch('/api/vendors') }
     catch (e) { console.error('[DataStore] vendors fetch failed', e) }
   }
 
   async function fetchLocations() {
-    try { state.locations = await _fetch('/api/locations') }
+    try { locations.value = await _fetch('/api/locations') }
     catch (e) { console.error('[DataStore] locations fetch failed', e) }
   }
 
   async function fetchRecipes() {
-    try { state.recipes = await _fetch('/api/recipes') }
+    try { recipes.value = await _fetch('/api/recipes') }
     catch (e) { console.error('[DataStore] recipes fetch failed', e) }
   }
 
   async function fetchItems() {
-    try { state.items = await _fetch('/api/items') }
+    try { items.value = await _fetch('/api/items') }
     catch (e) { console.error('[DataStore] items fetch failed', e) }
   }
 
   async function fetchConsumptions(params?: Record<string, any>) {
-    try { state.consumptions = await _fetch('/api/consumptions', { params }) }
+    try { consumptions.value = await _fetch('/api/consumptions', { params }) }
     catch (e) { console.error('[DataStore] consumptions fetch failed', e) }
   }
 
   async function fetchPreps() {
-    try { state.preps = await _fetch('/api/preps') }
+    try { preps.value = await _fetch('/api/preps') }
     catch (e) { console.error('[DataStore] preps fetch failed', e) }
   }
 
   async function fetchPrepList() {
-    try { state.prepList = await _fetch('/api/prep-list') }
+    try { prepList.value = await _fetch('/api/prep-list') }
     catch (e) { console.error('[DataStore] prep-list fetch failed', e) }
   }
 
   // ─── Prefetch everything in parallel ──────────────────────
   async function prefetchAll(force = false) {
+    // Only run on client
+    if (!import.meta.client) return
+
     // Skip if already loaded and not stale (unless forced)
     if (
       !force
-      && state.ready
-      && state.lastFetchedAt
-      && Date.now() - state.lastFetchedAt < STALE_TIME
+      && ready.value
+      && lastFetchedAt.value
+      && Date.now() - lastFetchedAt.value < STALE_TIME
     ) {
       return
     }
@@ -118,7 +96,7 @@ export function useDataStore() {
     // Deduplicate concurrent calls
     if (inflight) return inflight
 
-    state.loading = true
+    loading.value = true
 
     inflight = Promise.all([
       fetchDashboard(),
@@ -131,12 +109,12 @@ export function useDataStore() {
       fetchPreps(),
       fetchPrepList(),
     ]).then(() => {
-      state.ready = true
-      state.lastFetchedAt = Date.now()
-      state.loading = false
+      ready.value = true
+      lastFetchedAt.value = Date.now()
+      loading.value = false
       inflight = null
     }).catch(() => {
-      state.loading = false
+      loading.value = false
       inflight = null
     })
 
@@ -145,31 +123,36 @@ export function useDataStore() {
 
   // ─── Reset on logout ──────────────────────────────────────
   function reset() {
-    state.dashboard = null
-    state.categories = []
-    state.vendors = []
-    state.locations = []
-    state.recipes = []
-    state.items = []
-    state.consumptions = []
-    state.preps = []
-    state.prepList = []
-    state.ready = false
-    state.loading = false
-    state.lastFetchedAt = null
+    dashboard.value = null
+    categories.value = []
+    vendors.value = []
+    locations.value = []
+    recipes.value = []
+    items.value = []
+    consumptions.value = []
+    preps.value = []
+    prepList.value = []
+    ready.value = false
+    loading.value = false
+    lastFetchedAt.value = null
     inflight = null
   }
 
-  // Use toRefs instead of computed — toRefs doesn't require
-  // an active component instance, so useDataStore() can safely
-  // be called from event handlers, plugins, and other non-setup contexts.
-  const refs = toRefs(state)
-
   return {
-    // Reactive state (read-only access for pages)
-    ...refs,
+    // Reactive state — these are Refs from useState, safe everywhere
+    dashboard,
+    categories,
+    vendors,
+    locations,
+    recipes,
+    items,
+    consumptions,
+    preps,
+    prepList,
+    ready,
+    loading,
 
-    // Actions — prefetch all or refresh individual slices
+    // Actions
     prefetchAll,
     fetchDashboard,
     fetchCategories,
