@@ -42,6 +42,10 @@ interface POHeader {
   shipToName?: string
   shipToAddress?: string
   notes?: string
+  // Vendor contact details from PDF (used when creating new vendor)
+  vendorPhone?: string
+  vendorEmail?: string
+  vendorAddress?: string
 }
 
 interface PurchaseOrder {
@@ -86,7 +90,7 @@ interface VendorSkuMap {
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const { vendors, items: storeItems } = useDataStore()
+const { vendors, items: storeItems, fetchVendors, fetchItems } = useDataStore()
 
 const orders = ref<PurchaseOrder[]>([])
 const totalOrders = ref(0)
@@ -105,6 +109,7 @@ const saving = ref(false)
 const dragOver = ref(false)
 const fileInputRef = ref<HTMLInputElement>()
 const selectedFile = ref<File | null>(null)
+const editingOrderId = ref<string | null>(null) // null = new, string = editing existing
 
 // Preview state (editable after extraction)
 const previewHeader = ref<POHeader>({
@@ -126,6 +131,68 @@ const skuMaps = ref<Record<string, VendorSkuMap>>({}) // key = vendorSku
 // SKU search
 const allItems = computed(() => storeItems.value)
 const skuSearchQuery = ref<Record<string, string>>({})
+
+// Calculate position for teleported SKU dropdown
+function skuDropdownStyle(idx: number): Record<string, string> {
+  const el = document.querySelector(`[data-sku-input="${idx}"]`) as HTMLElement
+  if (!el) return { top: '0px', left: '0px' }
+  const rect = el.getBoundingClientRect()
+  return {
+    top: `${rect.bottom + 4}px`,
+    left: `${rect.left}px`,
+  }
+}
+
+// Vendor Search
+const vendorSearchOpen = ref(false)
+
+const filteredVendors = computed(() => {
+  const q = (previewHeader.value.vendorName || '').toLowerCase().trim()
+  if (!q) return vendors.value.slice(0, 50)
+  return vendors.value.filter((v: any) => v.vendorName?.toLowerCase().includes(q))
+})
+
+const exactVendorMatch = computed(() => {
+  const q = (previewHeader.value.vendorName || '').toLowerCase().trim()
+  if (!q) return true
+  return vendors.value.some((v: any) => v.vendorName?.toLowerCase() === q)
+})
+
+async function selectVendor(v: any) {
+  previewHeader.value.vendorName = v.vendorName
+  previewHeader.value.vendorId = v._id
+  vendorSearchOpen.value = false
+  await fetchSkuMaps(v._id)
+}
+
+async function addNewVendor() {
+  const name = (previewHeader.value.vendorName || '').trim()
+  if (!name) return
+  saving.value = true
+  try {
+    const vendorBody: Record<string, any> = { vendorName: name }
+    // Include contact details from parsed PDF if available
+    if (previewHeader.value.vendorPhone) vendorBody.phone = previewHeader.value.vendorPhone
+    if (previewHeader.value.vendorEmail) vendorBody.email = previewHeader.value.vendorEmail
+    if (previewHeader.value.vendorAddress) vendorBody.address = previewHeader.value.vendorAddress
+    const res = await $fetch<any>('/api/vendors', {
+      method: 'POST',
+      body: vendorBody
+    })
+    await fetchVendors()
+    previewHeader.value.vendorId = res._id
+    vendorSearchOpen.value = false
+    toast.success(`Added new vendor: ${name}`)
+  } catch (e: any) {
+    toast.error('Failed to create vendor')
+  } finally {
+    saving.value = false
+  }
+}
+
+function closeVendorDropdown() {
+  setTimeout(() => { vendorSearchOpen.value = false }, 200)
+}
 
 // ─── Detail Dialog ────────────────────────────────────────────────────────────
 const showDetailDialog = ref(false)
@@ -232,7 +299,7 @@ function onFileSelect(e: Event) {
 async function processUpload() {
   if (!selectedFile.value) return
   uploading.value = true
-  showUploadDialog.value = false
+  editingOrderId.value = null
 
   try {
     const formData = new FormData()
@@ -260,6 +327,9 @@ async function processUpload() {
       soldToAddress: p.soldToAddress || '',
       shipToName: p.shipToName || '',
       shipToAddress: p.shipToAddress || '',
+      vendorPhone: p.vendorPhone || '',
+      vendorEmail: p.vendorEmail || '',
+      vendorAddress: p.vendorAddress || '',
       notes: '',
     }
 
@@ -301,6 +371,7 @@ async function processUpload() {
   }
   finally {
     uploading.value = false
+    showUploadDialog.value = false
     selectedFile.value = null
     if (fileInputRef.value) fileInputRef.value.value = ''
   }
@@ -314,6 +385,38 @@ function filteredItemsForSku(lineIndex: number): any[] {
     it.item?.toLowerCase().includes(q)
     || it.itemSKU?.toLowerCase().includes(q),
   ).slice(0, 20)
+}
+
+function skuSearchHasExactMatch(lineIndex: number): boolean {
+  const q = (skuSearchQuery.value[String(lineIndex)] || '').toLowerCase().trim()
+  if (!q) return true
+  return allItems.value.some((it: any) =>
+    it.item?.toLowerCase() === q || it.itemSKU?.toLowerCase() === q
+  )
+}
+
+async function addNewItemFromSku(lineIndex: number) {
+  const q = (skuSearchQuery.value[String(lineIndex)] || '').trim()
+  if (!q) return
+  const lineItem = previewLineItems.value[lineIndex]
+  if (!lineItem) return
+  try {
+    const newItem = await $fetch<any>('/api/items', {
+      method: 'POST',
+      body: { item: q, itemSKU: '' }
+    })
+    // Refresh items list
+    await fetchItems()
+    // Link it
+    lineItem.mappedItemId = newItem._id
+    lineItem.mappedSku = newItem.itemSKU
+    lineItem.mappedItemName = newItem.item
+    lineItem.skuLinked = true
+    lineItem._skuSearchOpen = false
+    toast.success(`Created & linked new item: ${q}`)
+  } catch (e: any) {
+    toast.error('Failed to create new item')
+  }
 }
 
 function linkSku(lineIndex: number, item: any) {
@@ -376,9 +479,37 @@ function closeSkuDropdown(lineItem: LineItem) {
 
 // ─── Save PO ──────────────────────────────────────────────────────────────────
 async function handleSave() {
-  if (!previewHeader.value.vendorName.trim()) {
+  const name = (previewHeader.value.vendorName || '').trim()
+  if (!name) {
     toast.error('Vendor name is required')
     return
+  }
+
+  // Auto-resolve vendorId if they typed an exact match but didn't click it
+  if (!previewHeader.value.vendorId) {
+    const existing = vendors.value.find((v: any) => v.vendorName?.toLowerCase() === name.toLowerCase())
+    if (existing) {
+      previewHeader.value.vendorId = existing._id
+    } else {
+      saving.value = true
+      try {
+        const vendorBody: Record<string, any> = { vendorName: name }
+        if (previewHeader.value.vendorPhone) vendorBody.phone = previewHeader.value.vendorPhone
+        if (previewHeader.value.vendorEmail) vendorBody.email = previewHeader.value.vendorEmail
+        if (previewHeader.value.vendorAddress) vendorBody.address = previewHeader.value.vendorAddress
+        const res = await $fetch<any>('/api/vendors', {
+          method: 'POST',
+          body: vendorBody
+        })
+        await fetchVendors()
+        previewHeader.value.vendorId = res._id
+        toast.success(`Automatically added vendor: ${name}`)
+      } catch (e: any) {
+        toast.error('Failed to auto-create vendor')
+        saving.value = false
+        return
+      }
+    }
   }
 
   // Save SKU mappings for future auto-linking
@@ -409,20 +540,32 @@ async function handleSave() {
     return rest
   })
 
-  const payload = {
+  const payload: Record<string, any> = {
     ...previewHeader.value,
     lineItems: cleanItems,
     ...previewFinancials.value,
     totalItems: cleanItems.length,
     pdfAttachment: pdfAttachment.value || undefined,
-    status: 'draft',
+  }
+
+  // Only set status to draft for new POs
+  if (!editingOrderId.value) {
+    payload.status = 'draft'
   }
 
   saving.value = true
   try {
-    await $fetch('/api/purchase-orders', { method: 'POST', body: payload })
-    toast.success('Purchase order saved successfully!')
+    if (editingOrderId.value) {
+      // Update existing PO
+      await $fetch(`/api/purchase-orders/${editingOrderId.value}`, { method: 'PUT', body: payload })
+      toast.success('Purchase order updated successfully!')
+    } else {
+      // Create new PO
+      await $fetch('/api/purchase-orders', { method: 'POST', body: payload })
+      toast.success('Purchase order saved successfully!')
+    }
     showPreviewDialog.value = false
+    editingOrderId.value = null
     await fetchOrders()
   }
   catch (err: any) {
@@ -433,21 +576,73 @@ async function handleSave() {
   }
 }
 
-// ─── Detail View ──────────────────────────────────────────────────────────────
+// ─── Detail View (reuses preview dialog) ─────────────────────────────────────
 async function openDetail(order: PurchaseOrder) {
-  detailLoading.value = true
-  showDetailDialog.value = true
   try {
     const full = await $fetch<PurchaseOrder>(`/api/purchase-orders/${order._id}`)
-    detailOrder.value = full
+    editingOrderId.value = full._id
+    
+    previewHeader.value = {
+      vendorId: full.vendorId,
+      vendorName: full.vendorName || '',
+      invoiceNumber: full.invoiceNumber || '',
+      invoiceDate: full.invoiceDate || '',
+      deliveryDate: full.deliveryDate || '',
+      paymentDueDate: full.paymentDueDate || '',
+      poNumber: full.poNumber || '',
+      orderNumber: full.orderNumber || '',
+      customerNumber: full.customerNumber || '',
+      soldToName: full.soldToName || '',
+      soldToAddress: full.soldToAddress || '',
+      shipToName: full.shipToName || '',
+      shipToAddress: full.shipToAddress || '',
+      notes: full.notes || '',
+    }
+
+    previewFinancials.value = {
+      subTotal: full.subTotal || 0,
+      taxTotal: full.taxTotal || 0,
+      otherCharges: full.otherCharges || 0,
+      invoiceTotal: full.invoiceTotal || 0,
+    }
+
+    previewLineItems.value = (full.lineItems || []).map((item: any, idx: number) => ({
+      ...item,
+      lineNumber: idx + 1,
+      _skuSearchOpen: false,
+    }))
+
+    pdfAttachment.value = full.pdfAttachment || null
+    showPreviewDialog.value = true
   }
   catch {
     toast.error('Failed to load order details')
-    showDetailDialog.value = false
   }
-  finally {
-    detailLoading.value = false
+}
+
+// ─── Manual Create ────────────────────────────────────────────────────────────
+function openManualCreate() {
+  editingOrderId.value = null
+  previewHeader.value = {
+    vendorName: '',
+    invoiceNumber: '',
+    invoiceDate: '',
+    deliveryDate: '',
+    paymentDueDate: '',
+    poNumber: '',
+    orderNumber: '',
+    customerNumber: '',
+    soldToName: '',
+    soldToAddress: '',
+    shipToName: '',
+    shipToAddress: '',
+    notes: '',
   }
+  previewFinancials.value = { subTotal: 0, taxTotal: 0, otherCharges: 0, invoiceTotal: 0 }
+  previewLineItems.value = []
+  pdfAttachment.value = null
+  skuSearchQuery.value = {}
+  showPreviewDialog.value = true
 }
 
 async function updateStatus(order: PurchaseOrder, newStatus: string) {
@@ -526,6 +721,10 @@ function linkedCount(items: LineItem[]) {
         <Button variant="ghost" size="sm" class="h-8 text-xs" @click="fetchOrders">
           <Icon name="i-lucide-rotate-ccw" class="mr-1 size-3.5" />
           Refresh
+        </Button>
+        <Button variant="outline" size="sm" class="h-8 text-xs" @click="openManualCreate">
+          <Icon name="i-lucide-plus" class="mr-1 size-3.5" />
+          Create Manual
         </Button>
         <Button size="sm" class="h-8 text-xs" @click="showUploadDialog = true">
           <Icon name="i-lucide-upload" class="mr-1 size-3.5" />
@@ -635,7 +834,7 @@ function linkedCount(items: LineItem[]) {
               <TableCell>
                 <a
                   v-if="order.pdfAttachment?.secureUrl"
-                  :href="order.pdfAttachment.secureUrl"
+                  :href="`/api/purchase-orders/pdf/${order._id}`"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
@@ -695,6 +894,7 @@ function linkedCount(items: LineItem[]) {
 
       <!-- Drop Zone -->
       <div
+        v-if="!uploading"
         class="mt-2 border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-4 transition-all cursor-pointer select-none"
         :class="dragOver ? 'border-primary bg-primary/5 scale-[1.01]' : 'border-border hover:border-primary/50 hover:bg-muted/30'"
         @dragover="onDragOver"
@@ -725,12 +925,32 @@ function linkedCount(items: LineItem[]) {
         >
       </div>
 
-      <!-- Processing indicator -->
-      <div v-if="uploading" class="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-        <Icon name="i-lucide-loader-2" class="size-4 animate-spin text-primary shrink-0" />
-        <div class="text-sm">
-          <p class="font-medium">Processing PDF...</p>
-          <p class="text-xs text-muted-foreground">Extracting data and uploading to cloud</p>
+      <!-- Beautiful AI Processing State -->
+      <div 
+        v-else 
+        class="mt-2 relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/10 flex flex-col items-center justify-center p-12 text-center animate-in fade-in zoom-in duration-500 shadow-xl"
+      >
+        <!-- Glowing orb behind icon -->
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-48 bg-primary/20 blur-[50px] rounded-full point-events-none"></div>
+
+        <div class="relative z-10 size-20 rounded-full bg-background border border-primary/30 flex items-center justify-center mb-6 ring-8 ring-primary/5 shadow-[0_0_25px_rgba(var(--primary),0.2)]">
+          <!-- Two spinning/pulsing icons overlaid -->
+          <Icon name="i-lucide-sparkles" class="absolute size-8 text-primary animate-pulse" />
+          <Icon name="i-lucide-loader-2" class="size-20 absolute text-primary/20 animate-spin" />
+        </div>
+        
+        <h3 class="relative z-10 text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60 mb-2">
+          Gemini AI is Analyzing...
+        </h3>
+        
+        <p class="relative z-10 text-sm text-muted-foreground max-w-[280px] mx-auto leading-relaxed">
+          Extracting tabular data, parsing codes, and generating structure. This cloud process takes around 5-10 seconds.
+        </p>
+
+        <div class="relative z-10 mt-8 w-full max-w-[200px]">
+          <div class="h-1.5 w-full bg-primary/20 rounded-full overflow-hidden">
+             <div class="h-full bg-primary rounded-full animate-pulse w-full"></div>
+          </div>
         </div>
       </div>
     </DialogContent>
@@ -740,17 +960,19 @@ function linkedCount(items: LineItem[]) {
   <!-- PREVIEW / EDIT DIALOG                                                  -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <Dialog v-model:open="showPreviewDialog">
-    <DialogContent class="max-w-6xl w-full max-h-[95vh] flex flex-col p-0 gap-0">
+    <DialogContent class="max-w-[95vw] sm:max-w-[95vw] w-full max-h-[95vh] flex flex-col p-0 gap-0 [&>button:last-child]:hidden">
       <!-- Header Bar -->
       <div class="flex items-center justify-between px-6 py-4 border-b bg-muted/30">
         <div class="flex items-center gap-3">
           <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon name="i-lucide-file-check-2" class="size-5 text-primary" />
+            <Icon :name="editingOrderId ? 'i-lucide-file-pen-line' : 'i-lucide-file-check-2'" class="size-5 text-primary" />
           </div>
           <div>
-            <p class="font-semibold text-sm">Review & Edit Extracted Data</p>
+            <p class="font-semibold text-sm">
+              {{ editingOrderId ? 'Edit Purchase Order' : 'Review & Edit Extracted Data' }}
+            </p>
             <p class="text-xs text-muted-foreground">
-              Verify all information is correct before saving
+              {{ editingOrderId ? `Editing Invoice #${previewHeader.invoiceNumber || '—'}` : 'Verify all information is correct before saving' }}
               <span v-if="pdfAttachment" class="ml-2 text-emerald-600 dark:text-emerald-400">
                 <Icon name="i-lucide-cloud-check" class="inline size-3 mr-0.5" />Cloud uploaded
               </span>
@@ -758,19 +980,30 @@ function linkedCount(items: LineItem[]) {
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <Button variant="outline" size="sm" class="h-8 text-xs" @click="showPreviewDialog = false">
+          <!-- Delete button (only for existing POs) -->
+          <Button
+            v-if="editingOrderId"
+            variant="ghost"
+            size="sm"
+            class="h-8 text-xs text-destructive hover:text-destructive"
+            @click="confirmDelete({ _id: editingOrderId } as any); showPreviewDialog = false"
+          >
+            <Icon name="i-lucide-trash-2" class="mr-1.5 size-3.5" />
+            Delete
+          </Button>
+          <Button variant="outline" size="sm" class="h-8 text-xs" @click="showPreviewDialog = false; editingOrderId = null">
             Cancel
           </Button>
           <Button size="sm" class="h-8 text-xs" :disabled="saving" @click="handleSave">
             <Icon v-if="saving" name="i-lucide-loader-2" class="mr-1.5 size-3.5 animate-spin" />
             <Icon v-else name="i-lucide-check" class="mr-1.5 size-3.5" />
-            {{ saving ? 'Saving...' : 'Confirm & Save' }}
+            {{ saving ? 'Saving...' : editingOrderId ? 'Update & Save' : 'Confirm & Save' }}
           </Button>
         </div>
       </div>
 
       <!-- Scrollable Body -->
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1 overflow-y-auto overflow-x-hidden" style="overflow: auto; clip-path: none;">
         <div class="p-6 space-y-6">
           <!-- SKU Link Progress Banner -->
           <div
@@ -800,9 +1033,37 @@ function linkedCount(items: LineItem[]) {
           <div>
             <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Invoice Header</h3>
             <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-              <div class="space-y-1.5">
+              <div class="space-y-1.5 relative">
                 <Label class="text-xs">Vendor Name *</Label>
-                <Input v-model="previewHeader.vendorName" placeholder="Vendor name" class="h-8 text-sm" />
+                <Input 
+                  v-model="previewHeader.vendorName" 
+                  placeholder="Search or add vendor..." 
+                  class="h-8 text-sm" 
+                  @focus="vendorSearchOpen = true"
+                  @blur="closeVendorDropdown"
+                  @input="previewHeader.vendorId = ''"
+                />
+                <div
+                  v-if="vendorSearchOpen"
+                  class="absolute z-50 top-full left-0 mt-1 w-full bg-popover border rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <div
+                    v-for="v in filteredVendors"
+                    :key="v._id"
+                    class="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                    @mousedown.prevent="selectVendor(v)"
+                  >
+                    {{ v.vendorName }}
+                  </div>
+                  <div 
+                    v-if="!exactVendorMatch && previewHeader.vendorName.trim()"
+                    class="px-3 py-2 hover:bg-muted cursor-pointer text-sm text-primary flex items-center gap-2 border-t"
+                    @mousedown.prevent="addNewVendor"
+                  >
+                    <Icon name="i-lucide-plus" class="size-3.5" />
+                    Add "{{ previewHeader.vendorName }}"
+                  </div>
+                </div>
               </div>
               <div class="space-y-1.5">
                 <Label class="text-xs">Invoice #</Label>
@@ -859,13 +1120,13 @@ function linkedCount(items: LineItem[]) {
                   <thead class="bg-muted/50">
                     <tr>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground w-8">#</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Vendor Code</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground min-w-[130px]">Vendor Code</th>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground min-w-[200px]">Description</th>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground w-16">Cat.</th>
-                      <th class="px-3 py-2 text-right font-medium text-muted-foreground w-20">Qty</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-20">Qty</th>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground w-14">Unit</th>
-                      <th class="px-3 py-2 text-right font-medium text-muted-foreground w-22">Unit $</th>
-                      <th class="px-3 py-2 text-right font-medium text-muted-foreground w-22">Ext $</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-22">Unit $</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-22">Ext $</th>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground min-w-[160px]">Our SKU</th>
                       <th class="px-2 py-2 w-8" />
                     </tr>
@@ -874,12 +1135,12 @@ function linkedCount(items: LineItem[]) {
                     <!-- Category header rows -->
                     <template v-for="(lineItem, idx) in previewLineItems" :key="idx">
                       <tr
-                        v-if="idx === 0 || lineItem.category !== previewLineItems[idx - 1]?.category"
+                        v-if="lineItem.category && (idx === 0 || lineItem.category !== previewLineItems[idx - 1]?.category)"
                         class="bg-muted/30"
                       >
                         <td colspan="10" class="px-3 py-1.5">
                           <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            {{ lineItem.category || 'Items' }}
+                            {{ lineItem.category }}
                           </span>
                         </td>
                       </tr>
@@ -888,7 +1149,7 @@ function linkedCount(items: LineItem[]) {
                         <td class="px-3 py-1.5">
                           <Input
                             v-model="lineItem.vendorItemCode"
-                            class="h-6 text-xs font-mono w-20"
+                            class="h-6 text-xs font-mono w-32"
                             placeholder="CODE"
                           />
                         </td>
@@ -911,7 +1172,7 @@ function linkedCount(items: LineItem[]) {
                             v-model.number="lineItem.quantity"
                             type="number"
                             step="0.01"
-                            class="h-6 text-xs text-right w-20"
+                            class="h-6 text-xs text-left w-20"
                             @input="recalcLine(lineItem)"
                           />
                         </td>
@@ -923,11 +1184,11 @@ function linkedCount(items: LineItem[]) {
                             v-model.number="lineItem.unitPrice"
                             type="number"
                             step="0.01"
-                            class="h-6 text-xs text-right w-22"
+                            class="h-6 text-xs text-left w-22"
                             @input="recalcLine(lineItem)"
                           />
                         </td>
-                        <td class="px-3 py-1.5 text-right font-mono font-semibold tabular-nums whitespace-nowrap">
+                        <td class="px-3 py-1.5 text-left font-mono font-semibold tabular-nums whitespace-nowrap">
                           {{ fmt(lineItem.extendedPrice) }}
                         </td>
                         <td class="px-3 py-1.5">
@@ -941,28 +1202,43 @@ function linkedCount(items: LineItem[]) {
                               <Icon name="i-lucide-x" class="size-2.5" />
                             </Button>
                           </div>
-                          <div v-else class="relative">
+                          <div v-else style="position: relative;">
                             <Input
                               v-model="skuSearchQuery[String(idx)]"
+                              :data-sku-input="idx"
                               class="h-6 text-xs w-full"
                               placeholder="Search SKU..."
                               @focus="lineItem._skuSearchOpen = true"
                               @blur="closeSkuDropdown(lineItem)"
                             />
-                            <div
-                              v-if="lineItem._skuSearchOpen && filteredItemsForSku(idx).length > 0"
-                              class="absolute z-50 top-full left-0 mt-1 w-64 bg-popover border rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                            >
+                            <Teleport to="body">
                               <div
-                                v-for="item in filteredItemsForSku(idx)"
-                                :key="item._id"
-                                class="px-3 py-2 hover:bg-muted cursor-pointer"
-                                @mousedown.prevent="linkSku(idx, item)"
+                                v-if="lineItem._skuSearchOpen"
+                                class="fixed z-[9999] w-72 bg-popover border rounded-lg shadow-2xl max-h-52 overflow-y-auto"
+                                :style="skuDropdownStyle(idx)"
                               >
-                                <p class="font-medium text-xs">{{ item.item }}</p>
-                                <p class="text-[10px] text-muted-foreground font-mono">{{ item.itemSKU || 'No SKU' }}</p>
+                                <div v-if="filteredItemsForSku(idx).length === 0 && !skuSearchQuery[String(idx)]?.trim()" class="px-3 py-3 text-xs text-muted-foreground text-center">
+                                  Type to search items...
+                                </div>
+                                <div
+                                  v-for="item in filteredItemsForSku(idx)"
+                                  :key="item._id"
+                                  class="px-3 py-2 hover:bg-muted cursor-pointer transition-colors"
+                                  @mousedown.prevent="linkSku(idx, item)"
+                                >
+                                  <p class="font-medium text-xs">{{ item.item }}</p>
+                                  <p class="text-[10px] text-muted-foreground font-mono">{{ item.itemSKU || 'No SKU' }}</p>
+                                </div>
+                                <div
+                                  v-if="skuSearchQuery[String(idx)]?.trim() && !skuSearchHasExactMatch(idx)"
+                                  class="px-3 py-2.5 hover:bg-primary/10 cursor-pointer border-t flex items-center gap-2 text-primary transition-colors"
+                                  @mousedown.prevent="addNewItemFromSku(idx)"
+                                >
+                                  <Icon name="i-lucide-plus-circle" class="size-3.5 shrink-0" />
+                                  <span class="text-xs font-medium">Add "{{ skuSearchQuery[String(idx)]?.trim() }}"</span>
+                                </div>
                               </div>
-                            </div>
+                            </Teleport>
                           </div>
                         </td>
                         <td class="px-2 py-1.5">
@@ -1047,7 +1323,13 @@ function linkedCount(items: LineItem[]) {
                 {{ fmtSize(pdfAttachment.fileSizeBytes) }} · {{ pdfAttachment.pageCount }} page{{ pdfAttachment.pageCount !== 1 ? 's' : '' }} · Stored in Cloudinary
               </p>
             </div>
-            <a :href="pdfAttachment.secureUrl" target="_blank" rel="noopener noreferrer">
+            <a v-if="editingOrderId" :href="`/api/purchase-orders/pdf/${editingOrderId}`" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" class="h-7 text-xs gap-1.5">
+                <Icon name="i-lucide-download" class="size-3.5" />
+                Download
+              </Button>
+            </a>
+            <a v-else-if="pdfAttachment?.secureUrl" :href="pdfAttachment.secureUrl" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm" class="h-7 text-xs gap-1.5">
                 <Icon name="i-lucide-download" class="size-3.5" />
                 Download
@@ -1055,182 +1337,6 @@ function linkedCount(items: LineItem[]) {
             </a>
           </div>
         </div>
-      </div>
-    </DialogContent>
-  </Dialog>
-
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <!-- DETAIL DIALOG                                                          -->
-  <!-- ═══════════════════════════════════════════════════════════════════════ -->
-  <Dialog v-model:open="showDetailDialog">
-    <DialogContent class="max-w-5xl w-full max-h-[92vh] flex flex-col p-0 gap-0">
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b">
-        <div class="flex items-center gap-3">
-          <div v-if="detailOrder" class="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span class="font-bold text-primary text-sm">{{ detailOrder.vendorName?.charAt(0) }}</span>
-          </div>
-          <div>
-            <p class="font-semibold text-sm">{{ detailOrder?.vendorName }}</p>
-            <p class="text-xs text-muted-foreground font-mono">Invoice {{ detailOrder?.invoiceNumber || '—' }}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <!-- Status changer -->
-          <Select v-if="detailOrder" :model-value="detailOrder.status" @update:model-value="updateStatus(detailOrder, $event as string)">
-            <SelectTrigger class="h-8 text-xs w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="s in ['draft','reviewed','approved','received','cancelled']" :key="s" :value="s">
-                {{ STATUS_CONFIG[s as keyof typeof STATUS_CONFIG]?.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            v-if="detailOrder?.pdfAttachment?.secureUrl"
-            variant="outline"
-            size="sm"
-            class="h-8 text-xs gap-1.5"
-            as="a"
-            :href="detailOrder.pdfAttachment.secureUrl"
-            target="_blank"
-          >
-            <Icon name="i-lucide-download" class="size-3.5" />
-            PDF
-          </Button>
-          <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click="confirmDelete(detailOrder!)">
-            <Icon name="i-lucide-trash-2" class="size-4" />
-          </Button>
-        </div>
-      </div>
-
-      <!-- Body -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-6">
-        <!-- Loading -->
-        <div v-if="detailLoading" class="space-y-3">
-          <Skeleton v-for="i in 4" :key="i" class="h-10 w-full" />
-        </div>
-
-        <template v-else-if="detailOrder">
-          <!-- Header fields grid -->
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div v-for="(f, i) in [
-              { label: 'Invoice Date', value: fmtDate(detailOrder.invoiceDate) },
-              { label: 'Delivery Date', value: fmtDate(detailOrder.deliveryDate) },
-              { label: 'Payment Due', value: fmtDate(detailOrder.paymentDueDate) },
-              { label: 'Order #', value: detailOrder.orderNumber || '—' },
-              { label: 'Customer #', value: detailOrder.customerNumber || '—' },
-              { label: 'PO #', value: detailOrder.poNumber || '—' },
-            ]" :key="i" class="space-y-1">
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide">{{ f.label }}</p>
-              <p class="text-sm font-medium">{{ f.value }}</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <!-- Line Items -->
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Line Items ({{ detailOrder.lineItems?.length || 0 }})
-              </h3>
-              <span class="text-xs text-muted-foreground">
-                {{ linkedCount(detailOrder.lineItems || []) }}/{{ detailOrder.lineItems?.length || 0 }} SKUs linked
-              </span>
-            </div>
-            <div class="border rounded-lg overflow-hidden">
-              <div class="overflow-x-auto">
-                <table class="w-full text-xs">
-                  <thead class="bg-muted/50">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Code</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Description</th>
-                      <th class="px-3 py-2 text-right font-medium text-muted-foreground">Qty</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Unit</th>
-                      <th class="px-3 py-2 text-right font-medium text-muted-foreground">Unit $</th>
-                      <th class="px-3 py-2 text-right font-medium text-muted-foreground">Tax</th>
-                      <th class="px-3 py-2 text-right font-medium text-muted-foreground">Extended</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Our SKU</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y">
-                    <tr
-                      v-for="li in detailOrder.lineItems"
-                      :key="li.vendorItemCode + li.lineNumber"
-                      class="hover:bg-muted/20"
-                      :class="li.skuLinked ? 'bg-emerald-50/20 dark:bg-emerald-900/10' : ''"
-                    >
-                      <td class="px-3 py-2 font-mono font-medium">{{ li.vendorItemCode || '—' }}</td>
-                      <td class="px-3 py-2 max-w-[240px]">
-                        <p class="truncate">{{ li.description }}</p>
-                        <p v-if="li.category" class="text-[10px] text-muted-foreground font-medium uppercase">{{ li.category }}</p>
-                      </td>
-                      <td class="px-3 py-2 text-right tabular-nums">{{ li.quantity }}</td>
-                      <td class="px-3 py-2">{{ li.unit }}</td>
-                      <td class="px-3 py-2 text-right tabular-nums">{{ fmt(li.unitPrice) }}</td>
-                      <td class="px-3 py-2 text-right tabular-nums text-muted-foreground">{{ li.taxAmount ? fmt(li.taxAmount) : '—' }}</td>
-                      <td class="px-3 py-2 text-right tabular-nums font-semibold">{{ fmt(li.extendedPrice) }}</td>
-                      <td class="px-3 py-2">
-                        <span
-                          v-if="li.skuLinked"
-                          class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                        >
-                          <Icon name="i-lucide-link" class="size-2.5" />
-                          {{ li.mappedSku || li.mappedItemName }}
-                        </span>
-                        <span v-else class="text-[10px] text-muted-foreground italic">Not linked</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- Totals -->
-          <div class="flex justify-end">
-            <div class="w-72 space-y-2 bg-muted/30 rounded-xl p-4">
-              <div class="flex justify-between text-sm">
-                <span class="text-muted-foreground">Subtotal</span>
-                <span class="font-medium tabular-nums">{{ fmt(detailOrder.subTotal) }}</span>
-              </div>
-              <div v-if="detailOrder.taxTotal" class="flex justify-between text-sm">
-                <span class="text-muted-foreground">Tax</span>
-                <span class="tabular-nums">{{ fmt(detailOrder.taxTotal) }}</span>
-              </div>
-              <div v-if="detailOrder.otherCharges" class="flex justify-between text-sm">
-                <span class="text-muted-foreground">Other</span>
-                <span class="tabular-nums">{{ fmt(detailOrder.otherCharges) }}</span>
-              </div>
-              <Separator />
-              <div class="flex justify-between items-center">
-                <span class="font-bold text-sm">Total</span>
-                <span class="font-bold text-lg tabular-nums">{{ fmt(detailOrder.invoiceTotal) }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- PDF Attachment -->
-          <div v-if="detailOrder.pdfAttachment" class="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border">
-            <div class="size-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-              <Icon name="i-lucide-file-text" class="size-4 text-red-600 dark:text-red-400" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-xs font-medium truncate">{{ detailOrder.pdfAttachment.originalFileName }}</p>
-              <p class="text-[10px] text-muted-foreground">
-                {{ fmtSize(detailOrder.pdfAttachment.fileSizeBytes) }} · {{ detailOrder.pdfAttachment.pageCount }} page{{ (detailOrder.pdfAttachment.pageCount || 1) !== 1 ? 's' : '' }}
-              </p>
-            </div>
-            <a :href="detailOrder.pdfAttachment.secureUrl" target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" class="h-7 text-xs gap-1.5 shrink-0">
-                <Icon name="i-lucide-download" class="size-3.5" />
-                Download PDF
-              </Button>
-            </a>
-          </div>
-        </template>
       </div>
     </DialogContent>
   </Dialog>
@@ -1256,4 +1362,6 @@ function linkedCount(items: LineItem[]) {
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
+
 </template>
+

@@ -130,7 +130,7 @@ function parseJJMcDonnell(text: string): Partial<ParsedInvoice> {
   // Line items: Pattern "ITEMCODE  DESCRIPTION  QTY LBS  PRICE  AMOUNT"
   // e.g. "SAL225  SALMON ATL FIL DTRM SCALE 3-4#  60.30 LBS  7.35  443.21"
   const lineItems: ParsedLineItem[] = []
-  const itemPattern = /^([A-Z]{2,4}\d{3,6})\s+(.+?)\s{2,}([\d.]+)\s+(LBS|CS|EA|OZ|GAL|DZ|PKG|CRT|CAN|BOX|BAG|JR|CT|PK)\s+([\d.]+)\s+([\d,]+\.?\d*)$/i
+  const itemPattern = /^([A-Z0-9-]{3,15})\s+(.+?)\s+([\d.]+)\s+(LBS|CS|EA|OZ|GAL|DZ|PKG|CRT|CAN|BOX|BAG|JR|CT|PK)\s+([\d.]+)\s+([\d,]+\.?\d*)$/i
 
   let lineNum = 0
   for (const line of lines) {
@@ -364,6 +364,102 @@ function parseGeneric(text: string, vendorHint: string): Partial<ParsedInvoice> 
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
 export async function parsePurchaseOrderPdf(buffer: Buffer, originalFileName: string): Promise<ParsedInvoice> {
+  const geminiApiKey = process.env.GEMINI_API_KEY
+
+  // If we have an API key, use Google Gemini (Vertex AI equivalent) for exact structural extraction
+  if (geminiApiKey) {
+    try {
+      // Dynamic import to prevent crashing if not installed or used
+      const { GoogleGenerativeAI } = await import('@google/generative-ai')
+      const genAI = new GoogleGenerativeAI(geminiApiKey)
+      
+      // Use the latest pro/flash model for multi-modal (PDF) logic
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        }
+      })
+
+      const prompt = `
+        You are an intelligent data extraction assistant. I have provided a PDF invoice/purchase order.
+        Extract the structured text exactly as seen in the PDF.
+        Return ONLY valid JSON matching this schema:
+        {
+          "vendorName": string,
+          "vendorPhone": string,
+          "vendorEmail": string,
+          "vendorAddress": string,
+          "vendorWebsite": string,
+          "invoiceNumber": string,
+          "invoiceDate": "YYYY-MM-DD",
+          "deliveryDate": "YYYY-MM-DD",
+          "paymentDueDate": "YYYY-MM-DD",
+          "poNumber": string,          
+          "orderNumber": string,
+          "customerNumber": string,
+          "soldToName": string,
+          "soldToAddress": string,
+          "shipToName": string,
+          "shipToAddress": string,
+          "subTotal": number,
+          "taxTotal": number,
+          "otherCharges": number,
+          "invoiceTotal": number,
+          "totalItems": number,
+          "lineItems": [
+            {
+              "lineNumber": number,
+              "vendorItemCode": string,
+              "description": string,
+              "quantity": number,
+              "unit": string,
+              "unitPrice": number,
+              "taxAmount": number,
+              "extendedPrice": number,
+              "pack": string,
+              "size": string,
+              "category": string
+            }
+          ]
+        }
+        IMPORTANT RULES:
+        - Do not make up numbers. Use 0 for missing numbers and "" for missing strings.
+        - Parse the line items exactly. Ensure quantity, unitPrice, and extendedPrice match exactly.
+        - If there's no "vendorItemCode", use "" instead of making one up.
+        - For vendorPhone, vendorEmail, vendorAddress: extract from the vendor/company header area of the invoice (fax numbers count as phone if no phone number is present).
+        - vendorAddress should be the full street address of the vendor company (NOT the sold-to or ship-to address).
+      `
+
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: buffer.toString('base64'),
+            mimeType: 'application/pdf'
+          }
+        },
+        prompt
+      ])
+
+      const rawText = result.response.text()
+      const cleanJson = rawText.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
+      const parsedJson = JSON.parse(cleanJson)
+      
+      return {
+        ...parsedJson,
+        totalItems: parsedJson.lineItems?.length || 0,
+        pageCount: 1, // Fallback since Gemini doesn't report page count trivially
+        rawText: 'Extracted via Google AI (Vertex AI)'
+      } as ParsedInvoice
+
+    } catch (err: any) {
+      console.warn('[Gemini AI] PDF parsing failed, falling back to legacy regex engine:', err?.message)
+      // Fall through to legacy parsing if API fails
+    }
+  }
+
+  // ─── Legacy Engine Fallback ──────────────────────────────────────────────────
   // pdf-parse v2 uses a class-based API: new PDFParse({ data }) then .getText()
   const { PDFParse } = await import('pdf-parse')
   const parser = new PDFParse({ data: buffer })
