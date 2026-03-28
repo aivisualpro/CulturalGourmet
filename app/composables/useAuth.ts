@@ -227,18 +227,6 @@ export function useAuth() {
     }
   }
 
-  async function fetchNotifications(since?: string) {
-    if (!token.value) return null
-    try {
-      return await $fetch<any>('/api/admin/notifications', {
-        headers: { Authorization: `Bearer ${token.value}` },
-        query: since ? { since } : {},
-      })
-    }
-    catch {
-      return null
-    }
-  }
 
   async function updateUser(userId: string, action: string, data?: { role?: string, reason?: string }) {
     if (!token.value) return null
@@ -307,6 +295,5 @@ export function useAuth() {
     updateUser,
     deleteUser,
     validateSession,
-    fetchNotifications,
   }
 }

@@ -43,7 +43,7 @@ const displayTitle = computed(() => headerState.title || fallbackTitle.value)
       </div>
     </div>
     <div class="ml-auto flex items-center gap-2">
-      <AdminNotifications />
+
       <div :id="HEADER_ACTIONS_ID" class="contents" />
       <slot />
     </div>
