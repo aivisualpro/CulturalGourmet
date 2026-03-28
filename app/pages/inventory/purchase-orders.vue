@@ -960,7 +960,7 @@ function linkedCount(items: LineItem[]) {
   <!-- PREVIEW / EDIT DIALOG                                                  -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <Dialog v-model:open="showPreviewDialog">
-    <DialogContent class="max-w-[95vw] sm:max-w-[95vw] w-full max-h-[95vh] flex flex-col p-0 gap-0 [&>button:last-child]:hidden">
+    <DialogContent class="max-w-[70vw] sm:max-w-[70vw] w-full max-h-[95vh] flex flex-col p-0 gap-0 [&>button:last-child]:hidden">
       <!-- Header Bar -->
       <div class="flex items-center justify-between px-6 py-4 border-b bg-muted/30">
         <div class="flex items-center gap-3">
@@ -1116,19 +1116,31 @@ function linkedCount(items: LineItem[]) {
 
             <div class="border rounded-lg overflow-hidden">
               <div class="overflow-x-auto">
-                <table class="w-full text-xs">
+                <table class="w-full text-xs table-fixed">
+                  <colgroup>
+                    <col class="w-[36px]" /><!-- # -->
+                    <col class="w-[110px]" /><!-- Vendor Code -->
+                    <col /><!-- Description (flex: takes remaining space) -->
+                    <col class="w-[90px]" /><!-- Category -->
+                    <col class="w-[70px]" /><!-- Qty -->
+                    <col class="w-[60px]" /><!-- Unit -->
+                    <col class="w-[85px]" /><!-- Unit $ -->
+                    <col class="w-[90px]" /><!-- Ext $ -->
+                    <col class="w-[160px]" /><!-- Our SKU -->
+                    <col class="w-[36px]" /><!-- Actions -->
+                  </colgroup>
                   <thead class="bg-muted/50">
                     <tr>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-8">#</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground min-w-[130px]">Vendor Code</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground min-w-[200px]">Description</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-16">Cat.</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-20">Qty</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-14">Unit</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-22">Unit $</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground w-22">Ext $</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground min-w-[160px]">Our SKU</th>
-                      <th class="px-2 py-2 w-8" />
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">#</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Vendor Code</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Description</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Category</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Qty</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Unit</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Unit $</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Ext $</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Our SKU</th>
+                      <th class="px-2 py-2" />
                     </tr>
                   </thead>
                   <tbody class="divide-y">
@@ -1149,21 +1161,21 @@ function linkedCount(items: LineItem[]) {
                         <td class="px-3 py-1.5">
                           <Input
                             v-model="lineItem.vendorItemCode"
-                            class="h-6 text-xs font-mono w-32"
+                            class="h-6 text-xs font-mono w-full"
                             placeholder="CODE"
                           />
                         </td>
                         <td class="px-3 py-1.5">
                           <Input
                             v-model="lineItem.description"
-                            class="h-6 text-xs min-w-[200px]"
+                            class="h-6 text-xs w-full"
                             placeholder="Description"
                           />
                         </td>
                         <td class="px-3 py-1.5">
                           <Input
                             v-model="lineItem.category"
-                            class="h-6 text-xs w-16"
+                            class="h-6 text-xs w-full"
                             placeholder="—"
                           />
                         </td>
@@ -1172,19 +1184,19 @@ function linkedCount(items: LineItem[]) {
                             v-model.number="lineItem.quantity"
                             type="number"
                             step="0.01"
-                            class="h-6 text-xs text-left w-20"
+                            class="h-6 text-xs text-left w-full"
                             @input="recalcLine(lineItem)"
                           />
                         </td>
                         <td class="px-3 py-1.5">
-                          <Input v-model="lineItem.unit" class="h-6 text-xs w-14" placeholder="EA" />
+                          <Input v-model="lineItem.unit" class="h-6 text-xs w-full" placeholder="EA" />
                         </td>
                         <td class="px-3 py-1.5">
                           <Input
                             v-model.number="lineItem.unitPrice"
                             type="number"
                             step="0.01"
-                            class="h-6 text-xs text-left w-22"
+                            class="h-6 text-xs text-left w-full"
                             @input="recalcLine(lineItem)"
                           />
                         </td>
