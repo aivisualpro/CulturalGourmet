@@ -468,14 +468,14 @@ async function handleDelete() {
 
     <!-- ═══ Create/Edit Dialog ═══ -->
     <Dialog v-model:open="showDialog">
-      <DialogContent class="sm:max-w-[780px] max-h-[92vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent class="sm:max-w-[780px] h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader class="shrink-0">
           <DialogTitle>{{ editingRecipe ? 'Edit' : 'New' }} Recipe</DialogTitle>
           <DialogDescription class="sr-only">{{ editingRecipe ? 'Edit' : 'Create' }} a recipe</DialogDescription>
         </DialogHeader>
-        <form class="space-y-5" @submit.prevent="handleSave">
+        <form class="flex flex-col flex-1 overflow-hidden space-y-4" @submit.prevent="handleSave">
           <!-- Tab navigation -->
-          <div class="flex gap-1 p-1 rounded-lg bg-muted/50">
+          <div class="flex gap-1 p-1 rounded-lg bg-muted/50 shrink-0">
             <button
               v-for="tab in [
                 { key: 'details', label: 'Details', icon: 'i-lucide-file-text' },
@@ -496,6 +496,8 @@ async function handleDelete() {
             </button>
           </div>
 
+          <!-- Tab Content Wrapper -->
+          <div class="flex-1 overflow-y-auto pr-2 -mr-2 pb-2">
           <!-- Tab: Details -->
           <div v-show="activeTab === 'details'" class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -715,8 +717,10 @@ async function handleDelete() {
               />
             </div>
           </div>
+          </div> <!-- End Tab Content Wrapper -->
 
-          <DialogFooter class="flex sm:justify-between items-center w-full">
+          <div class="shrink-0 pt-4 border-t mt-auto">
+            <DialogFooter class="flex sm:justify-between items-center w-full">
             <div class="flex items-center gap-2 text-xs text-muted-foreground mr-auto">
               <!-- Auto-save indicators only show in edit mode -->
               <template v-if="editingRecipe">
@@ -741,6 +745,7 @@ async function handleDelete() {
               </template>
             </div>
           </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

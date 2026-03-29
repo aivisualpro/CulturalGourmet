@@ -24,24 +24,105 @@ const poDialogLoading = ref(false)
 const poData = ref<any>(null)
 const highlightedItemId = ref<string | null>(null)
 
-async function openPoDialog(t: any) {
-  if (t.type !== 'po') return
-  const poId = t._id.split('-')[0]
-  poDialogOpen.value = true
-  poDialogLoading.value = true
-  highlightedItemId.value = itemId
+const { prepList: prepItems, locations: allLocations, fetchPreps } = useDataStore()
+
+async function openTransaction(t: any) {
+  if (t.type === 'po') {
+    const poId = t._id.split('-')[0]
+    poDialogOpen.value = true
+    poDialogLoading.value = true
+    highlightedItemId.value = itemId
+    try {
+      poData.value = await _fetch(`/api/purchase-orders/${poId}`)
+      setTimeout(() => {
+        const el = document.getElementById('po-dialog-row-' + itemId)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setTimeout(() => { highlightedItemId.value = null }, 5000)
+      }, 300)
+    } catch {
+      toast.error('Failed to load purchase order')
+      poDialogOpen.value = false
+    } finally {
+      poDialogLoading.value = false
+    }
+  } else if (t.type === 'prep') {
+    const prepId = t._id
+    try {
+      // Show global loading indicator or block
+      const entry = await _fetch(`/api/preps/${prepId}`)
+      prepEditingSession.value = entry
+      prepForm.value = {
+        date: entry.date ? new Date(entry.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+        station: entry.station || '',
+        item: entry.item || '',
+        description: entry.description || '',
+        qty: entry.qty ?? undefined,
+        unit: entry.unit || '',
+      }
+      prepDialogOpen.value = true
+    } catch {
+      toast.error('Failed to load prep entry')
+    }
+  }
+}
+
+// ─── Prep Dialog State ──────────────────────────────────────
+const prepDialogOpen = ref(false)
+const prepEditingSession = ref<any>(null)
+const prepSaving = ref(false)
+
+const prepForm = ref({
+  date: new Date().toISOString().slice(0, 10),
+  station: '',
+  item: '',
+  description: '',
+  qty: undefined as number | undefined,
+  unit: '',
+})
+
+const stationOpen = ref(false)
+const stationSearch = ref('')
+const filteredStations = computed(() => {
+  if (!stationSearch.value) return allLocations.value
+  const q = stationSearch.value.toLowerCase()
+  return allLocations.value.filter((s: any) => s.name?.toLowerCase().includes(q))
+})
+
+function selectStation(station: any) {
+  prepForm.value.station = station.name
+  stationOpen.value = false
+  stationSearch.value = ''
+}
+
+const prepItemOpen = ref(false)
+const prepItemSearch = ref('')
+const filteredPrepItems = computed(() => {
+  if (!prepItemSearch.value) return prepItems.value
+  const q = prepItemSearch.value.toLowerCase()
+  return prepItems.value.filter((p: any) => p.prepName?.toLowerCase().includes(q))
+})
+
+function selectPrepItem(item: any) {
+  prepForm.value.item = item.prepName
+  prepItemOpen.value = false
+  prepItemSearch.value = ''
+}
+
+async function handlePrepSave() {
+  if (!prepForm.value.station) { toast.error('Station is required'); return }
+  if (!prepForm.value.item) { toast.error('Item is required'); return }
+  prepSaving.value = true
+
   try {
-    poData.value = await _fetch(`/api/purchase-orders/${poId}`)
-    setTimeout(() => {
-      const el = document.getElementById('po-dialog-row-' + itemId)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      setTimeout(() => { highlightedItemId.value = null }, 5000)
-    }, 300)
+    await _fetch(`/api/preps/${prepEditingSession.value._id}`, { method: 'PUT', body: prepForm.value })
+    toast.success('Prep entry updated')
+    prepDialogOpen.value = false
+    await fetchPreps()
+    await fetchData()
   } catch {
-    toast.error('Failed to load purchase order')
-    poDialogOpen.value = false
+    toast.error('Failed to update prep entry')
   } finally {
-    poDialogLoading.value = false
+    prepSaving.value = false
   }
 }
 
@@ -278,7 +359,7 @@ const stationCounts = computed(() => {
                 v-for="row in ledgerReversed"
                 :key="row._id"
                 class="border-b border-border/40 hover:bg-muted/20 transition-colors cursor-pointer group"
-                @click="openPoDialog(row.original)"
+                @click="openTransaction(row.original)"
               >
                 <td class="px-4 py-3 tabular-nums font-medium text-muted-foreground whitespace-nowrap">{{ formatDateMDY(row.date) }}</td>
                 <td class="px-4 py-3 whitespace-nowrap">
@@ -481,11 +562,11 @@ const stationCounts = computed(() => {
                       <col class="w-[36px]" />
                       <col class="w-[110px]" />
                       <col />
-                      <col class="w-[90px]" />
+                      <col class="w-[140px]" />
                       <col class="w-[70px]" />
-                      <col class="w-[60px]" />
-                      <col class="w-[85px]" />
-                      <col class="w-[90px]" />
+                      <col class="w-[80px]" />
+                      <col class="w-[100px]" />
+                      <col class="w-[110px]" />
                       <col />
                     </colgroup>
                     <thead class="bg-muted/50">
@@ -496,17 +577,22 @@ const stationCounts = computed(() => {
                         <th class="px-3 py-2 text-left font-medium text-muted-foreground">Category</th>
                         <th class="px-3 py-2 text-left font-medium text-muted-foreground">Qty</th>
                         <th class="px-3 py-2 text-left font-medium text-muted-foreground">Unit</th>
-                        <th class="px-3 py-2 text-left font-medium text-muted-foreground">Unit $</th>
-                        <th class="px-3 py-2 text-left font-medium text-muted-foreground">Ext $</th>
+                        <th class="px-3 py-2 text-left font-medium text-muted-foreground">Cost</th>
+                        <th class="px-3 py-2 text-left font-medium text-muted-foreground">Amount</th>
                         <th class="px-3 py-2 text-left font-medium text-muted-foreground">Our SKU</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y">
                       <template v-for="(group, gi) in poLineGroups" :key="gi">
                         <!-- Category row -->
-                        <tr class="bg-muted/30">
-                          <td colspan="9" class="px-3 py-1.5">
-                            <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{{ group.category }}</span>
+                        <tr class="bg-primary/5 dark:bg-primary/10 border-y border-primary/10">
+                          <td colspan="6" class="px-3 py-2">
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-primary/80 dark:text-primary/70">{{ group.category }}</span>
+                          </td>
+                          <td colspan="3" class="px-3 py-2 text-left">
+                            <span class="text-[11px] font-bold tabular-nums text-primary">
+                              {{ fmt(group.items.reduce((sum: number, li: any) => sum + (li.extendedPrice || 0), 0)) }}
+                            </span>
                           </td>
                         </tr>
                         <!-- Line rows -->
@@ -581,5 +667,164 @@ const stationCounts = computed(() => {
         </div>
       </div>
     </DialogContent>
-  </Dialog>
+    </Dialog>
+
+    <!-- ═══ Edit Prep Dialog ═══ -->
+    <Dialog v-model:open="prepDialogOpen">
+      <DialogContent class="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>Edit Prep Entry</DialogTitle>
+          <DialogDescription class="sr-only">Edit a prep entry</DialogDescription>
+        </DialogHeader>
+        <form class="space-y-5" @submit.prevent="handlePrepSave">
+          <!-- Date -->
+          <div class="space-y-2">
+            <Label for="prepDate">Date <span class="text-destructive">*</span></Label>
+            <Input id="prepDate" v-model="prepForm.date" type="date" />
+          </div>
+
+          <!-- Station dropdown -->
+          <div class="space-y-2">
+            <Label>Station <span class="text-destructive">*</span></Label>
+            <Popover v-model:open="stationOpen">
+              <PopoverTrigger as-child>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-between rounded-md border border-input bg-background ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full gap-1 h-9 text-sm px-3"
+                >
+                  <span v-if="prepForm.station" class="truncate flex items-center gap-1.5">
+                    <Icon name="i-lucide-map-pin" class="size-3.5 shrink-0 text-primary/60" />
+                    <span class="font-medium">{{ prepForm.station }}</span>
+                  </span>
+                  <span v-else class="text-muted-foreground truncate">Select station...</span>
+                  <Icon name="i-lucide-chevrons-up-down" class="size-3 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent class="w-[280px] p-0" align="start">
+                <div class="flex items-center border-b px-3 py-2">
+                  <Icon name="i-lucide-search" class="size-3.5 text-muted-foreground mr-2 shrink-0" />
+                  <input v-model="stationSearch" class="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" placeholder="Search stations...">
+                </div>
+                <div class="max-h-[220px] overflow-y-auto p-1">
+                  <button
+                    v-for="station in filteredStations"
+                    :key="station._id"
+                    type="button"
+                    class="w-full flex items-center gap-2.5 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
+                    :class="prepForm.station === station.name ? 'bg-primary/5 text-primary font-medium' : ''"
+                    @click="selectStation(station)"
+                  >
+                    <Icon
+                      :name="prepForm.station === station.name ? 'i-lucide-check' : 'i-lucide-map-pin'"
+                      class="size-3.5 shrink-0"
+                      :class="prepForm.station === station.name ? 'text-primary' : 'text-muted-foreground'"
+                    />
+                    <p class="truncate">{{ station.name }}</p>
+                  </button>
+                  <div v-if="filteredStations.length === 0" class="text-center py-4 text-xs text-muted-foreground">
+                    <Icon name="i-lucide-map-pin" class="size-5 mx-auto mb-1.5 opacity-50" />
+                    <p>No stations found</p>
+                  </div>
+                </div>
+                <div v-if="prepForm.station" class="border-t p-1">
+                  <button
+                    type="button"
+                    class="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    @click="prepForm.station = ''; stationOpen = false"
+                  >
+                    <Icon name="i-lucide-x" class="size-3" /> Clear
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <!-- Item dropdown -->
+          <div class="space-y-2">
+            <Label>Item <span class="text-destructive">*</span></Label>
+            <Popover v-model:open="prepItemOpen">
+              <PopoverTrigger as-child>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-between rounded-md border border-input bg-background ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full gap-1 h-9 text-sm px-3"
+                >
+                  <span v-if="prepForm.item" class="truncate flex items-center gap-1.5">
+                    <Icon name="i-lucide-clipboard-list" class="size-3.5 shrink-0 text-primary/60" />
+                    <span class="font-medium">{{ prepForm.item }}</span>
+                  </span>
+                  <span v-else class="text-muted-foreground truncate">Select item...</span>
+                  <Icon name="i-lucide-chevrons-up-down" class="size-3 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent class="w-[280px] p-0" align="start">
+                <div class="flex items-center border-b px-3 py-2">
+                  <Icon name="i-lucide-search" class="size-3.5 text-muted-foreground mr-2 shrink-0" />
+                  <input v-model="prepItemSearch" class="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" placeholder="Search items...">
+                </div>
+                <div class="max-h-[220px] overflow-y-auto p-1">
+                  <button
+                    v-for="item in filteredPrepItems"
+                    :key="item._id"
+                    type="button"
+                    class="w-full flex items-center gap-2.5 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
+                    :class="prepForm.item === item.prepName ? 'bg-primary/5 text-primary font-medium' : ''"
+                    @click="selectPrepItem(item)"
+                  >
+                    <Icon
+                      :name="prepForm.item === item.prepName ? 'i-lucide-check' : 'i-lucide-clipboard-list'"
+                      class="size-3.5 shrink-0"
+                      :class="prepForm.item === item.prepName ? 'text-primary' : 'text-muted-foreground'"
+                    />
+                    <div class="flex-1 text-left">
+                      <p class="truncate">{{ item.prepName }}</p>
+                      <p v-if="item.recipe" class="text-[10px] text-muted-foreground">
+                        <Icon name="i-lucide-chef-hat" class="size-2.5 inline-block align-[-2px] mr-0.5" />
+                        {{ item.recipe }}
+                      </p>
+                    </div>
+                  </button>
+                  <div v-if="filteredPrepItems.length === 0" class="text-center py-4 text-xs text-muted-foreground">
+                    <Icon name="i-lucide-clipboard-list" class="size-5 mx-auto mb-1.5 opacity-50" />
+                    <p>No items found</p>
+                  </div>
+                </div>
+                <div v-if="prepForm.item" class="border-t p-1">
+                  <button
+                    type="button"
+                    class="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    @click="prepForm.item = ''; prepItemOpen = false"
+                  >
+                    <Icon name="i-lucide-x" class="size-3" /> Clear
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <!-- Description + Qty + Unit -->
+          <div class="grid grid-cols-3 gap-4">
+            <div class="space-y-2">
+              <Label for="prepDesc">Description</Label>
+              <Input id="prepDesc" v-model="prepForm.description" placeholder="e.g. Double batch" />
+            </div>
+            <div class="space-y-2">
+              <Label for="prepQty">Qty</Label>
+              <Input id="prepQty" v-model.number="prepForm.qty" type="number" step="any" min="0" placeholder="e.g. 10" />
+            </div>
+            <div class="space-y-2">
+              <Label>Unit</Label>
+              <UnitSelect v-model="prepForm.unit" placeholder="Select unit" />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" type="button" @click="prepDialogOpen = false">Cancel</Button>
+            <Button type="submit" :disabled="prepSaving">
+              <Icon v-if="prepSaving" name="i-lucide-loader-2" class="mr-1 size-4 animate-spin" />
+              Update
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
 </template>

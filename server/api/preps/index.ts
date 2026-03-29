@@ -1,4 +1,5 @@
 import { Prep } from '../../models/Prep'
+import { expandPrepItemToIngredients } from '../../utils/recipe-expansion'
 
 export default defineEventHandler(async (event) => {
   const method = getMethod(event)
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
   // POST /api/preps
   if (method === 'POST') {
     const body = await readBody(event)
+    body.consumedItems = await expandPrepItemToIngredients(body.item, body.qty || 1)
     return await Prep.create(body)
   }
 })

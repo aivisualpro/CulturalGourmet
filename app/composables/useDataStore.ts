@@ -20,7 +20,6 @@ export function useDataStore() {
   const locations = useState<any[]>('ds:locations', () => [])
   const recipes = useState<any[]>('ds:recipes', () => [])
   const items = useState<any[]>('ds:items', () => [])
-  const consumptions = useState<any[]>('ds:consumptions', () => [])
   const preps = useState<any[]>('ds:preps', () => [])
   const prepList = useState<any[]>('ds:prepList', () => [])
   const ready = useState<boolean>('ds:ready', () => false)
@@ -63,11 +62,6 @@ export function useDataStore() {
     catch (e) { console.error('[DataStore] items fetch failed', e) }
   }
 
-  async function fetchConsumptions(params?: Record<string, any>) {
-    try { consumptions.value = await _fetch('/api/consumptions', { params }) }
-    catch (e) { console.error('[DataStore] consumptions fetch failed', e) }
-  }
-
   async function fetchPreps() {
     try { preps.value = await _fetch('/api/preps') }
     catch (e) { console.error('[DataStore] preps fetch failed', e) }
@@ -105,7 +99,6 @@ export function useDataStore() {
       fetchLocations(),
       fetchRecipes(),
       fetchItems(),
-      fetchConsumptions(),
       fetchPreps(),
       fetchPrepList(),
     ]).then(() => {
@@ -129,7 +122,6 @@ export function useDataStore() {
     locations.value = []
     recipes.value = []
     items.value = []
-    consumptions.value = []
     preps.value = []
     prepList.value = []
     ready.value = false
@@ -146,7 +138,6 @@ export function useDataStore() {
     locations,
     recipes,
     items,
-    consumptions,
     preps,
     prepList,
     ready,
@@ -160,7 +151,6 @@ export function useDataStore() {
     fetchLocations,
     fetchRecipes,
     fetchItems,
-    fetchConsumptions,
     fetchPreps,
     fetchPrepList,
     reset,

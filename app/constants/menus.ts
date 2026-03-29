@@ -74,11 +74,7 @@ export const navMenu: NavMenu[] = [
         icon: 'i-lucide-arrow-left-right',
         link: '/inventory/transfers',
       },
-      {
-        title: 'Consumptions',
-        icon: 'i-lucide-flame',
-        link: '/inventory/consumptions',
-      },
+
     ],
   },
 

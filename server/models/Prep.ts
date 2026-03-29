@@ -7,6 +7,11 @@ export interface IPrep extends Document {
   description: string
   qty: number
   unit: string
+  consumedItems: {
+    itemName: string
+    quantity: number
+    unit: string
+  }[]
   createdAt: Date
   updatedAt: Date
 }
@@ -19,6 +24,13 @@ const PrepSchema = new Schema<IPrep>(
     description: { type: String, trim: true, default: '' },
     qty: { type: Number, default: null },
     unit: { type: String, trim: true, default: '' },
+    consumedItems: [
+      {
+        itemName: { type: String, required: true },
+        quantity: { type: Number, required: true },
+        unit: { type: String, default: '' },
+      }
+    ]
   },
   {
     timestamps: true,

@@ -16,33 +16,21 @@ export default defineEventHandler(async (event) => {
   if (!attachment?.cloudinaryPublicId) {
     throw createError({ statusCode: 404, message: 'No PDF attachment on this order' })
   }
+  // Instead of signing and redirecting (which often causes 401s on raw/attachment flags due to strict signatures)
+  // we proxy the file through the server to guarantee it downloads as an attachment.
+  try {
+    const response = await fetch(attachment.secureUrl)
+    if (!response.ok) throw new Error('Failed to fetch from Cloudinary')
 
-  const cld = useCloudinary()
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
-  const isLegacyRaw = attachment.secureUrl.includes('/raw/upload/')
-
-  if (isLegacyRaw) {
-    // Legacy files were uploaded as 'raw' which may have account restrictions.
-    // We try to sign the URL to bypass the restriction, but if it 401s, 
-    // the user will need to re-upload the PO.
-    const signedUrl = cld.url(attachment.cloudinaryPublicId, {
-      secure: true,
-      resource_type: 'raw',
-      type: 'upload',
-      sign_url: true,
-    })
-    return sendRedirect(event, signedUrl, 302)
+    setResponseHeader(event, 'Content-Type', 'application/pdf')
+    setResponseHeader(event, 'Content-Disposition', `attachment; filename="${attachment.originalFileName || `PO-${po.invoiceNumber || id}.pdf`}"`)
+    
+    return buffer
+  } catch (error) {
+    // Fallback to direct URL if our fetch proxy fails
+    return sendRedirect(event, attachment.secureUrl, 302)
   }
-
-  // New files are uploaded as 'image' to bypass the global restriction on raw files.
-  // We can just generate a direct secure URL for the 'image' resource as a PDF.
-  const signedUrl = cld.url(attachment.cloudinaryPublicId, {
-    secure: true,
-    resource_type: 'image',
-    type: 'upload',
-    format: 'pdf',
-    sign_url: true, // Just in case they enabled strict signature on everything
-  })
-
-  return sendRedirect(event, signedUrl, 302)
 })

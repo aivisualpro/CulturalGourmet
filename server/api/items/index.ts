@@ -24,10 +24,11 @@ export default defineEventHandler(async (event) => {
     // 2. Aggregate Preps to get total consumed quantity per item (grouped by item name)
     const { Prep } = await import('../../models/Prep')
     const prepStats = await Prep.aggregate([
+      { $unwind: { path: '$consumedItems', preserveNullAndEmptyArrays: false } },
       {
         $group: {
-          _id: '$item',
-          totalPrepQty: { $sum: { $abs: '$qty' } } // preps are consumed outward
+          _id: '$consumedItems.itemName',
+          totalPrepQty: { $sum: '$consumedItems.quantity' }
         }
       }
     ])

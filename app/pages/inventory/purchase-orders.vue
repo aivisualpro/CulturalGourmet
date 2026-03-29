@@ -135,6 +135,15 @@ const previewFinancials = ref({
 })
 const pdfAttachment = ref<any>(null)
 
+const categoryTotals = computed(() => {
+  const totals: Record<string, number> = {}
+  for (const li of previewLineItems.value) {
+    const cat = (li.category || 'Uncategorized').trim().toUpperCase()
+    totals[cat] = (totals[cat] || 0) + (li.extendedPrice || 0)
+  }
+  return totals
+})
+
 // SKU mapping cache per vendor
 const skuMaps = ref<Record<string, VendorSkuMap>>({}) // key = vendorSku
 
@@ -495,11 +504,65 @@ async function saveNewItemFromDialog() {
     
     toast.success(`Created & linked new item: ${newItem.item}`)
     showNewItemDialog.value = false
+    autoSavePO()
   } catch (e: any) {
     toast.error('Failed to create new item')
   } finally {
     savingNewItem.value = false
     pendingLineIndex.value = null
+  }
+}
+
+const isAutoSaving = ref(false)
+
+async function autoSavePO() {
+  if (isAutoSaving.value) return
+  
+  const name = (previewHeader.value.vendorName || '').trim()
+  if (!name) return // Silently abort if required vendor name is missing
+
+  const cleanItems = previewLineItems.value.map((li) => {
+    const { _skuSearchOpen, ...rest } = li
+    return rest
+  })
+
+  // Ensure locationName matches locationId before saving
+  if (previewHeader.value.locationId) {
+    const loc = locations.value.find((l: any) => l._id === previewHeader.value.locationId)
+    previewHeader.value.locationName = loc?.name || ''
+  } else {
+    previewHeader.value.locationName = ''
+  }
+
+  const payload: Record<string, any> = {
+    ...previewHeader.value,
+    lineItems: cleanItems,
+    ...previewFinancials.value,
+    totalItems: cleanItems.length,
+    pdfAttachment: pdfAttachment.value || undefined,
+  }
+
+  if (!editingOrderId.value) {
+    payload.status = 'draft'
+  }
+
+  isAutoSaving.value = true
+  try {
+    if (editingOrderId.value) {
+      await $fetch<any>(`/api/purchase-orders/${editingOrderId.value}`, { method: 'PUT', body: payload })
+    } else {
+      const resp = await $fetch<any>('/api/purchase-orders', { method: 'POST', body: payload })
+      editingOrderId.value = resp._id // Subsequent autosaves will be updates
+    }
+    // Refresh global items so avg. cost updates magically across the app!
+    await Promise.all([
+      fetchItems(),
+      fetchOrders()
+    ])
+  } catch (err) {
+    console.error('Autosave failed:', err)
+  } finally {
+    isAutoSaving.value = false
   }
 }
 
@@ -514,6 +577,7 @@ function linkSku(lineIndex: number, item: any) {
   }
   lineItem.skuLinked = true
   lineItem._skuSearchOpen = false
+  autoSavePO()
 }
 
 function unlinkSku(lineIndex: number) {
@@ -523,6 +587,7 @@ function unlinkSku(lineIndex: number) {
   lineItem.mappedSku = ''
   lineItem.mappedItemName = ''
   lineItem.skuLinked = false
+  autoSavePO()
 }
 
 // Recalculate extended price when qty/price changes
@@ -1303,11 +1368,11 @@ function linkedCount(items: LineItem[]) {
                     <col class="w-[36px]" /><!-- # -->
                     <col class="w-[110px]" /><!-- Vendor Code -->
                     <col /><!-- Description (takes equal remaining space) -->
-                    <col class="w-[90px]" /><!-- Category -->
+                    <col class="w-[140px]" /><!-- Category -->
                     <col class="w-[70px]" /><!-- Qty -->
-                    <col class="w-[60px]" /><!-- Unit -->
-                    <col class="w-[85px]" /><!-- Unit $ -->
-                    <col class="w-[90px]" /><!-- Ext $ -->
+                    <col class="w-[80px]" /><!-- Unit -->
+                    <col class="w-[100px]" /><!-- Cost -->
+                    <col class="w-[110px]" /><!-- Amount -->
                     <col /><!-- Our SKU (takes equal remaining space) -->
                     <col class="w-[36px]" /><!-- Actions -->
                   </colgroup>
@@ -1319,8 +1384,8 @@ function linkedCount(items: LineItem[]) {
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground">Category</th>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground">Qty</th>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground">Unit</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Unit $</th>
-                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Ext $</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Cost</th>
+                      <th class="px-3 py-2 text-left font-medium text-muted-foreground">Amount</th>
                       <th class="px-3 py-2 text-left font-medium text-muted-foreground">Our SKU</th>
                       <th class="px-2 py-2" />
                     </tr>
@@ -1330,11 +1395,16 @@ function linkedCount(items: LineItem[]) {
                     <template v-for="(lineItem, idx) in previewLineItems" :key="idx">
                       <tr
                         v-if="lineItem.category && (idx === 0 || lineItem.category !== previewLineItems[idx - 1]?.category)"
-                        class="bg-muted/30"
+                        class="bg-primary/5 dark:bg-primary/10 border-y border-primary/10"
                       >
-                        <td colspan="10" class="px-3 py-1.5">
-                          <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        <td colspan="7" class="px-3 py-2">
+                          <span class="text-[10px] font-bold uppercase tracking-widest text-primary/80 dark:text-primary/70">
                             {{ lineItem.category }}
+                          </span>
+                        </td>
+                        <td colspan="3" class="px-3 py-2 text-left">
+                          <span class="text-[11px] font-bold tabular-nums text-primary">
+                            {{ fmt(categoryTotals[(lineItem.category || 'Uncategorized').trim().toUpperCase()] || 0) }}
                           </span>
                         </td>
                       </tr>

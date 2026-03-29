@@ -448,12 +448,6 @@ function getCMap(colorName: string) {
               <CardTitle class="text-base">Recent Activity</CardTitle>
               <CardDescription class="text-xs">Latest 10 consumption entries</CardDescription>
             </div>
-            <NuxtLink to="/inventory/consumptions">
-              <Button variant="outline" size="sm" class="h-7 text-xs gap-1">
-                View All
-                <ArrowUpRight class="size-3" />
-              </Button>
-            </NuxtLink>
           </div>
         </CardHeader>
         <CardContent class="p-0">

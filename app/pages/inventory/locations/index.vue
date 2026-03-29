@@ -119,7 +119,7 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="loc in filtered" :key="loc._id" class="group">
+            <TableRow v-for="loc in filtered" :key="loc._id" class="group hover:bg-muted/40 transition-colors cursor-pointer" @click="navigateTo(`/inventory/locations/${loc._id}`)">
               <TableCell>
                 <div class="flex items-center gap-3">
                   <Avatar class="size-8 border bg-emerald-500/10">
@@ -149,8 +149,9 @@ async function handleReset() { search.value = ''; await fetchLocations(); toast.
               </TableCell>
               <TableCell class="text-right">
                 <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" class="size-8" @click="openEdit(loc)"><Icon name="i-lucide-pencil" class="size-3.5" /></Button>
-                  <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click="confirmDelete(loc)"><Icon name="i-lucide-trash-2" class="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon" class="size-8" @click.stop="navigateTo(`/inventory/locations/${loc._id}`)"><Icon name="i-lucide-eye" class="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon" class="size-8" @click.stop="openEdit(loc)"><Icon name="i-lucide-pencil" class="size-3.5" /></Button>
+                  <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click.stop="confirmDelete(loc)"><Icon name="i-lucide-trash-2" class="size-3.5" /></Button>
                 </div>
               </TableCell>
             </TableRow>

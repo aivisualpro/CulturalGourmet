@@ -10,8 +10,8 @@ export default defineEventHandler(async (event) => {
   const item = await Item.findById(id).lean()
   if (!item) throw createError({ statusCode: 404, statusMessage: 'Item not found' })
 
-  // Build filter for prep entries matching this item name
-  const prepFilter: Record<string, any> = { item: item.item }
+  // Build filter for prep entries matching this item name inside consumedItems
+  const prepFilter: Record<string, any> = { 'consumedItems.itemName': item.item }
 
   // Optional station filter
   const stationFilter = (query.station && query.station !== 'all') ? query.station as string : null
@@ -25,15 +25,20 @@ export default defineEventHandler(async (event) => {
   const stationSet = new Set<string>()
   const preps = rawPreps.map(p => {
     if (p.station) stationSet.add(p.station)
+    
+    // Find the consumed qty for this specific item
+    const consumed = p.consumedItems?.find((c: any) => c.itemName === item.item)
+    const qtyConsumed = consumed?.quantity || 0
+
     return {
       _id: String(p._id),
       type: 'prep',
       station: p.station || 'Prep',
-      qty: p.qty || 0,
+      qty: -Math.abs(qtyConsumed), // OUT transaction
       date: p.date,
       createdAt: p.createdAt,
-      description: p.description || 'Prep Recorded',
-      unit: p.unit || item.unit
+      description: `Prep: ${p.item}${p.description ? ' - ' + p.description : ''}`,
+      unit: consumed?.unit || item.unit
     }
   })
 

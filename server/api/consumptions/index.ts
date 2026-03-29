@@ -26,6 +26,10 @@ export default defineEventHandler(async (event) => {
       filter.date = { $gte: from, $lt: toEnd }
     }
 
+    if (query.station && query.station !== 'all') {
+      filter.station = query.station as string
+    }
+
     return await Consumption.find(filter).sort({ date: -1, category: 1 }).lean()
   }
 

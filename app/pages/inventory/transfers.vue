@@ -59,7 +59,38 @@ function resetDraft() {
     notes: '',
     lineItems: [] as any[],
   }
+  locationInventory.value = []
 }
+
+const locationInventory = ref<any[]>([])
+const loadingInventory = ref(false)
+
+watch(() => draftTransfer.value.sourceLocationId, async (newVal) => {
+  if (!newVal) {
+    locationInventory.value = []
+    draftTransfer.value.lineItems.forEach(li => {
+      li.maxQty = 0 // Invalidated
+    })
+    return
+  }
+  loadingInventory.value = true
+  try {
+    const res = await $fetch<any>(`/api/locations/${newVal}/inventory`)
+    locationInventory.value = res.inventory
+    
+    // Update maxQty for any already selected items
+    draftTransfer.value.lineItems.forEach(li => {
+      if (li.itemId) {
+        const found = locationInventory.value.find((i: any) => String(i._id) === String(li.itemId))
+        li.maxQty = found ? found.balance : 0
+      }
+    })
+  } catch (err) {
+    toast.error('Failed to load location inventory')
+  } finally {
+    loadingInventory.value = false
+  }
+})
 
 function openCreate() {
   resetDraft()
@@ -68,6 +99,10 @@ function openCreate() {
 
 // ─── Transfer Actions ───────────────────────────────────────
 function addRow() {
+  if (!draftTransfer.value.sourceLocationId) {
+    toast.error('Please select a source location first')
+    return
+  }
   draftTransfer.value.lineItems.push({
     lineNumber: draftTransfer.value.lineItems.length + 1,
     itemId: '',
@@ -75,6 +110,7 @@ function addRow() {
     itemSKU: '',
     quantity: 1,
     unit: '',
+    maxQty: 0,
   })
 }
 
@@ -86,12 +122,13 @@ function removeRow(idx: number) {
 
 function onItemSelected(idx: number, itemId: string) {
   const line = draftTransfer.value.lineItems[idx]
-  const itm = items.value.find((i: any) => String(i._id) === String(itemId))
+  const itm = locationInventory.value.find((i: any) => String(i._id) === String(itemId))
   if (itm) {
     line.itemId = String(itm._id)
     line.itemName = itm.item
     line.itemSKU = itm.itemSKU
     line.unit = itm.unit
+    line.maxQty = itm.balance
   }
 }
 
@@ -102,6 +139,13 @@ async function handleSave() {
   
   const validItems = draftTransfer.value.lineItems.filter((li: any) => li.itemId && li.quantity > 0)
   if (validItems.length === 0) { toast.error('Add at least one valid item line to transfer'); return }
+
+  for (const li of validItems) {
+    if (li.quantity > li.maxQty) {
+      toast.error(`Cannot transfer ${li.quantity} of ${li.itemName}. Only ${li.maxQty} available.`)
+      return
+    }
+  }
 
   const srcLoc = locations.value.find((l: any) => String(l._id) === draftTransfer.value.sourceLocationId)
   const destLoc = locations.value.find((l: any) => String(l._id) === draftTransfer.value.destinationLocationId)
@@ -254,7 +298,7 @@ async function handleDelete() {
                   <SelectValue placeholder="Select outgoing location..." />
                 </SelectTrigger>
                 <SelectContent class="max-w-[calc(100vw-40px)] w-[var(--radix-select-trigger-width)]">
-                  <SelectItem v-for="l in locations" :key="l._id" :value="String(l._id)">{{ l.name }}</SelectItem>
+                  <SelectItem v-for="l in locations" :key="l._id" :value="String(l._id)" :disabled="String(l._id) === draftTransfer.destinationLocationId">{{ l.name }}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -265,7 +309,7 @@ async function handleDelete() {
                   <SelectValue placeholder="Select receiving location..." />
                 </SelectTrigger>
                 <SelectContent class="max-w-[calc(100vw-40px)] w-[var(--radix-select-trigger-width)]">
-                  <SelectItem v-for="l in locations" :key="l._id" :value="String(l._id)">{{ l.name }}</SelectItem>
+                  <SelectItem v-for="l in locations" :key="l._id" :value="String(l._id)" :disabled="String(l._id) === draftTransfer.sourceLocationId">{{ l.name }}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -313,15 +357,20 @@ async function handleDelete() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent class="max-w-[calc(100vw-40px)] w-[var(--radix-select-trigger-width)] z-[60]">
-                    <SelectItem v-for="itm in items" :key="itm._id" :value="String(itm._id)">
-                      {{ itm.item }} <span class="text-muted-foreground font-mono text-xs ml-2">{{ itm.itemSKU }}</span>
+                    <div v-if="loadingInventory" class="p-2 text-xs text-muted-foreground text-center">Loading inventory...</div>
+                    <div v-else-if="locationInventory.length === 0" class="p-2 text-xs text-muted-foreground text-center">No items available to transfer from this location.</div>
+                    <SelectItem v-for="itm in locationInventory" :key="itm._id" :value="String(itm._id)">
+                      {{ itm.item }} <span class="text-muted-foreground font-mono text-xs ml-2">{{ itm.itemSKU }} ({{ itm.balance }} {{ getUnitAbbr(itm.unit) || itm.unit }})</span>
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div class="flex gap-2 w-full sm:w-auto h-9">
                 <div class="relative w-24">
-                  <Input type="number" v-model="line.quantity" step="0.01" min="0" class="pr-6 h-9 tabular-nums text-right" />
+                  <Input type="number" v-model="line.quantity" step="0.01" min="0" :max="line.maxQty || null" class="pr-6 h-9 tabular-nums text-right" />
+                  <div class="absolute -bottom-4 right-0 text-[9px] text-muted-foreground whitespace-nowrap" v-if="line.itemId">
+                    Max: {{ line.maxQty }}
+                  </div>
                 </div>
                 <!-- Mini Unit Dropdown -->
                 <div class="w-32 shrink-0">
