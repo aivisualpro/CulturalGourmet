@@ -35,14 +35,9 @@ export const navMenu: NavMenu[] = [
         link: '/inventory/vendors',
       },
       {
-        title: 'Purchase Orders',
-        icon: 'i-lucide-file-text',
-        link: '/inventory/purchase-orders',
-      },
-      {
-        title: 'Stations',
+        title: 'Locations',
         icon: 'i-lucide-map-pin',
-        link: '/inventory/stations',
+        link: '/inventory/locations',
       },
       {
         title: 'Categories',
@@ -68,6 +63,16 @@ export const navMenu: NavMenu[] = [
         title: 'Prep',
         icon: 'i-lucide-cooking-pot',
         link: '/inventory/prep',
+      },
+      {
+        title: 'Purchase Orders',
+        icon: 'i-lucide-file-text',
+        link: '/inventory/purchase-orders',
+      },
+      {
+        title: 'Transfers',
+        icon: 'i-lucide-arrow-left-right',
+        link: '/inventory/transfers',
       },
       {
         title: 'Consumptions',

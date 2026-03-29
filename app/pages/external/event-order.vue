@@ -402,7 +402,7 @@ async function handleSubmit() {
                   <SelectContent>
                     <SelectItem value="Plated">Plated</SelectItem>
                     <SelectItem value="Buffet">Buffet</SelectItem>
-                    <SelectItem value="Stations">Stations</SelectItem>
+                    <SelectItem value="Locations">Locations</SelectItem>
                     <SelectItem value="Family Style">Family Style</SelectItem>
                     <SelectItem value="Cocktail">Cocktail</SelectItem>
                     <SelectItem value="Other">Other</SelectItem>

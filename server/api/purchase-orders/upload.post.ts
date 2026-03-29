@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
       const uploadStream = cld.uploader.upload_stream(
         {
           folder,
-          resource_type: 'raw',
+          resource_type: 'image',
           use_filename: true,
           unique_filename: true,
           access_mode: 'public',

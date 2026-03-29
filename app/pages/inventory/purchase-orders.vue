@@ -42,6 +42,8 @@ interface POHeader {
   shipToName?: string
   shipToAddress?: string
   notes?: string
+  locationId?: string
+  locationName?: string
   // Vendor contact details from PDF (used when creating new vendor)
   vendorPhone?: string
   vendorEmail?: string
@@ -69,7 +71,10 @@ interface PurchaseOrder {
   taxTotal: number
   otherCharges: number
   totalItems: number
+  linkedItemCount?: number
   notes?: string
+  locationId?: string
+  locationName?: string
   lineItems?: LineItem[]
   pdfAttachment?: {
     secureUrl: string
@@ -90,7 +95,7 @@ interface VendorSkuMap {
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const { vendors, items: storeItems, fetchVendors, fetchItems } = useDataStore()
+const { vendors, items: storeItems, locations, fetchVendors, fetchItems, fetchLocations } = useDataStore()
 
 const orders = ref<PurchaseOrder[]>([])
 const totalOrders = ref(0)
@@ -99,6 +104,11 @@ const page = ref(1)
 const limit = 20
 const statusFilter = ref('all')
 const search = ref('')
+const selectedFilterVendorId = ref<string | null>(null)
+const dateFrom = ref('')
+const dateTo = ref('')
+
+const vendorSummaries = ref<{ vendorId: string, vendorName: string, totalOrders: number, totalSum: number }[]>([])
 
 // ─── Upload / Preview Flow ────────────────────────────────────────────────────
 const showUploadDialog = ref(false)
@@ -194,6 +204,11 @@ function closeVendorDropdown() {
   setTimeout(() => { vendorSearchOpen.value = false }, 200)
 }
 
+function onLocationChange() {
+  const loc = locations.value.find((l: any) => l._id === previewHeader.value.locationId)
+  previewHeader.value.locationName = loc?.name || ''
+}
+
 // ─── Detail Dialog ────────────────────────────────────────────────────────────
 const showDetailDialog = ref(false)
 const detailOrder = ref<PurchaseOrder | null>(null)
@@ -228,6 +243,9 @@ async function fetchOrders() {
     const params: Record<string, any> = { page: page.value, limit }
     if (statusFilter.value !== 'all') params.status = statusFilter.value
     if (search.value.trim()) params.search = search.value.trim()
+    if (selectedFilterVendorId.value) params.vendorId = selectedFilterVendorId.value
+    if (dateFrom.value) params.dateFrom = dateFrom.value
+    if (dateTo.value) params.dateTo = dateTo.value
 
     const res = await $fetch<{ items: PurchaseOrder[], total: number }>('/api/purchase-orders', { params })
     orders.value = res.items
@@ -256,13 +274,44 @@ async function fetchSkuMaps(vendorId?: string) {
   catch { /* ignore */ }
 }
 
-watch([statusFilter, search], () => {
+async function fetchVendorSummaries() {
+  try {
+    vendorSummaries.value = await $fetch<any>('/api/purchase-orders/vendors-summary')
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+watch([statusFilter, search, selectedFilterVendorId, dateFrom, dateTo], () => {
   page.value = 1
   fetchOrders()
 })
 
+const highlightedItemId = ref<string | null>(null)
+
 onMounted(() => {
+  fetchVendorSummaries()
   fetchOrders()
+  fetchLocations()
+
+  const route = useRoute()
+  if (route.query.openPoId) {
+    if (route.query.highlightItemId) {
+      highlightedItemId.value = route.query.highlightItemId as string
+    }
+    openDetail({ _id: route.query.openPoId as string } as any).then(() => {
+      if (highlightedItemId.value) {
+        setTimeout(() => {
+          const el = document.getElementById('row-' + highlightedItemId.value)
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 500)
+        // Auto-remove highlight blinking after 5 seconds to reduce animation noise
+        setTimeout(() => {
+          highlightedItemId.value = null
+        }, 5000)
+      }
+    })
+  }
 })
 
 // ─── File Handling ────────────────────────────────────────────────────────────
@@ -395,27 +444,62 @@ function skuSearchHasExactMatch(lineIndex: number): boolean {
   )
 }
 
-async function addNewItemFromSku(lineIndex: number) {
+const showNewItemDialog = ref(false)
+const savingNewItem = ref(false)
+const newItemForm = ref({
+  item: '',
+  category: '',
+  subCategory: '',
+  unit: '',
+})
+const pendingLineIndex = ref<number | null>(null)
+
+function openNewItemDialog(lineIndex: number) {
   const q = (skuSearchQuery.value[String(lineIndex)] || '').trim()
-  if (!q) return
+  newItemForm.value = {
+    item: q,
+    category: '',
+    subCategory: '',
+    unit: '',
+  }
+  pendingLineIndex.value = lineIndex
+  showNewItemDialog.value = true
+  
   const lineItem = previewLineItems.value[lineIndex]
-  if (!lineItem) return
+  if (lineItem) lineItem._skuSearchOpen = false
+}
+
+async function saveNewItemFromDialog() {
+  if (!newItemForm.value.item.trim()) {
+    toast.error('Item name is required')
+    return
+  }
+  if (pendingLineIndex.value === null) return
+
+  savingNewItem.value = true
   try {
     const newItem = await $fetch<any>('/api/items', {
       method: 'POST',
-      body: { item: q, itemSKU: '' }
+      body: newItemForm.value
     })
-    // Refresh items list
     await fetchItems()
-    // Link it
-    lineItem.mappedItemId = newItem._id
-    lineItem.mappedSku = newItem.itemSKU
-    lineItem.mappedItemName = newItem.item
-    lineItem.skuLinked = true
-    lineItem._skuSearchOpen = false
-    toast.success(`Created & linked new item: ${q}`)
+    
+    const lineItem = previewLineItems.value[pendingLineIndex.value]
+    if (lineItem) {
+      lineItem.mappedItemId = newItem._id
+      lineItem.mappedSku = newItem.itemSKU
+      lineItem.mappedItemName = newItem.item
+      lineItem.skuLinked = true
+      lineItem._skuSearchOpen = false
+    }
+    
+    toast.success(`Created & linked new item: ${newItem.item}`)
+    showNewItemDialog.value = false
   } catch (e: any) {
     toast.error('Failed to create new item')
+  } finally {
+    savingNewItem.value = false
+    pendingLineIndex.value = null
   }
 }
 
@@ -425,6 +509,9 @@ function linkSku(lineIndex: number, item: any) {
   lineItem.mappedItemId = item._id
   lineItem.mappedSku = item.itemSKU
   lineItem.mappedItemName = item.item
+  if (item.category) {
+    lineItem.category = item.category
+  }
   lineItem.skuLinked = true
   lineItem._skuSearchOpen = false
 }
@@ -518,7 +605,7 @@ async function handleSave() {
     const mappingPromises = previewLineItems.value
       .filter(li => li.skuLinked && li.mappedItemId && li.vendorItemCode)
       .map(li =>
-        $fetch('/api/purchase-orders/sku-maps', {
+        $fetch<any>('/api/purchase-orders/sku-maps', {
           method: 'POST',
           body: {
             vendorId,
@@ -540,6 +627,14 @@ async function handleSave() {
     return rest
   })
 
+  // Ensure locationName matches locationId before saving
+  if (previewHeader.value.locationId) {
+    const loc = locations.value.find((l: any) => l._id === previewHeader.value.locationId)
+    previewHeader.value.locationName = loc?.name || ''
+  } else {
+    previewHeader.value.locationName = ''
+  }
+
   const payload: Record<string, any> = {
     ...previewHeader.value,
     lineItems: cleanItems,
@@ -557,11 +652,11 @@ async function handleSave() {
   try {
     if (editingOrderId.value) {
       // Update existing PO
-      await $fetch(`/api/purchase-orders/${editingOrderId.value}`, { method: 'PUT', body: payload })
+      await $fetch<any>(`/api/purchase-orders/${editingOrderId.value}`, { method: 'PUT', body: payload })
       toast.success('Purchase order updated successfully!')
     } else {
       // Create new PO
-      await $fetch('/api/purchase-orders', { method: 'POST', body: payload })
+      await $fetch<any>('/api/purchase-orders', { method: 'POST', body: payload })
       toast.success('Purchase order saved successfully!')
     }
     showPreviewDialog.value = false
@@ -597,6 +692,8 @@ async function openDetail(order: PurchaseOrder) {
       shipToName: full.shipToName || '',
       shipToAddress: full.shipToAddress || '',
       notes: full.notes || '',
+      locationId: full.locationId || '',
+      locationName: full.locationName || '',
     }
 
     previewFinancials.value = {
@@ -670,7 +767,7 @@ function confirmDelete(order: PurchaseOrder) {
 async function handleDelete() {
   if (!deletingOrder.value) return
   try {
-    await $fetch(`/api/purchase-orders/${deletingOrder.value._id}`, { method: 'DELETE' })
+    await $fetch<any>(`/api/purchase-orders/${deletingOrder.value._id}`, { method: 'DELETE' })
     toast.success('Purchase order deleted')
     showDeleteDialog.value = false
     if (detailOrder.value?._id === deletingOrder.value._id) showDetailDialog.value = false
@@ -734,27 +831,81 @@ function linkedCount(items: LineItem[]) {
     </Teleport>
   </ClientOnly>
 
-  <div class="w-full flex flex-col gap-4">
-    <!-- Mobile Search -->
-    <div class="sm:hidden relative">
-      <Icon name="i-lucide-search" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-      <Input v-model="search" placeholder="Search orders..." class="pl-9" />
+  <div class="w-full flex flex-col lg:flex-row gap-6">
+    <!-- Sub-Sidebar for Vendors -->
+    <div class="lg:w-64 shrink-0 flex flex-col gap-4 w-full">
+      <h3 class="text-xs font-semibold px-2 uppercase tracking-widest text-muted-foreground">Vendors</h3>
+      <div class="flex flex-col gap-1 overflow-y-auto max-h-[80vh] scrollbar-thin px-1">
+        <button
+          class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors text-left"
+          :class="selectedFilterVendorId === null ? 'bg-primary text-primary-foreground font-medium shadow-sm' : 'hover:bg-muted text-muted-foreground hover:text-foreground'"
+          @click="selectedFilterVendorId = null"
+        >
+          <span>All Vendors</span>
+        </button>
+        <button
+          v-for="vs in vendorSummaries"
+          :key="vs.vendorId"
+          class="flex flex-col w-full px-3 py-2 rounded-lg text-xs transition-colors text-left gap-1"
+          :class="selectedFilterVendorId === vs.vendorId ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-muted-foreground hover:text-foreground'"
+          @click="selectedFilterVendorId = vs.vendorId"
+        >
+          <div class="flex items-center justify-between">
+            <span class="truncate font-medium">{{ vs.vendorName }}</span>
+            <span class="tabular-nums shrink-0 ml-2" :class="selectedFilterVendorId === vs.vendorId ? 'text-primary/70' : 'opacity-70'">{{ vs.totalOrders }}</span>
+          </div>
+          <span class="tabular-nums font-mono opacity-80" :class="selectedFilterVendorId === vs.vendorId ? 'text-primary' : ''">{{ fmt(vs.totalSum) }}</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Status Filter Pills -->
-    <div class="shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-0.5">
-      <button
-        v-for="tab in STATUS_TABS"
-        :key="tab.key"
-        class="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all"
-        :class="statusFilter === tab.key
-          ? 'bg-primary text-primary-foreground shadow-sm'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted'"
-        @click="statusFilter = tab.key"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col gap-4 min-w-0">
+      <!-- Top Filters Row -->
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 w-full">
+        <!-- Mobile Search -->
+        <div class="sm:hidden relative flex-1">
+          <Icon name="i-lucide-search" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input v-model="search" placeholder="Search orders..." class="pl-9 h-9" />
+        </div>
+
+        <div class="flex flex-wrap xl:flex-nowrap items-center gap-3 w-full">
+          <!-- Status Filter Pills -->
+          <div class="shrink-0 flex items-center gap-1 overflow-x-auto scrollbar-thin">
+            <button
+              v-for="tab in STATUS_TABS"
+              :key="tab.key"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all"
+              :class="statusFilter === tab.key
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'"
+              @click="statusFilter = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+          
+          <div class="flex-1 min-w-4" /> <!-- spacer -->
+
+          <!-- Date Filters -->
+          <div class="flex items-center gap-1.5 whitespace-nowrap bg-background rounded-lg p-1 border shadow-sm shrink-0">
+            <Icon name="i-lucide-calendar" class="size-4 text-muted-foreground mx-1 shrink-0" />
+            <Input v-model="dateFrom" type="date" class="h-8 text-xs bg-transparent border-none shadow-none w-[110px] sm:w-[130px] shrink-0" />
+            <span class="text-muted-foreground text-xs shrink-0 px-1">to</span>
+            <Input v-model="dateTo" type="date" class="h-8 text-xs bg-transparent border-none shadow-none w-[110px] sm:w-[130px] shrink-0" />
+            <Button
+              v-if="dateFrom || dateTo"
+              variant="ghost"
+              size="icon"
+              class="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0 mr-0.5"
+              @click="dateFrom = ''; dateTo = ''"
+              title="Clear Dates"
+            >
+              <Icon name="i-lucide-x" class="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
 
     <!-- Empty state banner -->
     <Card v-if="!loading && orders.length === 0" class="flex flex-col items-center justify-center py-20 text-center gap-4">
@@ -807,7 +958,7 @@ function linkedCount(items: LineItem[]) {
                   <div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <span class="text-xs font-bold text-primary">{{ order.vendorName?.charAt(0)?.toUpperCase() || '?' }}</span>
                   </div>
-                  <span class="font-medium text-sm truncate max-w-[140px]">{{ order.vendorName }}</span>
+                  <span class="font-medium text-sm">{{ order.vendorName }}</span>
                 </div>
               </TableCell>
               <TableCell>
@@ -817,19 +968,36 @@ function linkedCount(items: LineItem[]) {
                 {{ fmtDate(order.invoiceDate) }}
               </TableCell>
               <TableCell>
-                <span class="text-sm tabular-nums font-medium">{{ order.totalItems }}</span>
+                <span class="text-sm tabular-nums font-medium">{{ order.linkedItemCount || 0 }}/{{ order.totalItems }}</span>
               </TableCell>
               <TableCell>
                 <span class="text-sm font-semibold tabular-nums">{{ fmt(order.invoiceTotal) }}</span>
               </TableCell>
-              <TableCell>
-                <span
-                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
-                  :class="STATUS_CONFIG[order.status]?.color"
-                >
-                  <span class="size-1.5 rounded-full" :class="STATUS_CONFIG[order.status]?.dot" />
-                  {{ STATUS_CONFIG[order.status]?.label }}
-                </span>
+              <TableCell @click.stop>
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <button
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium transition-colors hover:ring-2 ring-primary/20 ring-offset-1 focus:outline-none"
+                      :class="STATUS_CONFIG[order.status]?.color"
+                      @click.prevent
+                    >
+                      <span class="size-1.5 rounded-full" :class="STATUS_CONFIG[order.status]?.dot" />
+                      {{ STATUS_CONFIG[order.status]?.label }}
+                      <Icon name="i-lucide-chevron-down" class="size-3 opacity-50 ml-0.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" class="w-40 min-w-[8rem]">
+                    <DropdownMenuItem
+                      v-for="s in Object.keys(STATUS_CONFIG)"
+                      :key="s"
+                      class="text-xs flex items-center gap-2 cursor-pointer"
+                      @click="updateStatus(order, s)"
+                    >
+                      <span class="size-2 rounded-full" :class="STATUS_CONFIG[s as keyof typeof STATUS_CONFIG]?.dot" />
+                      {{ STATUS_CONFIG[s as keyof typeof STATUS_CONFIG]?.label }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
               <TableCell>
                 <a
@@ -875,6 +1043,7 @@ function linkedCount(items: LineItem[]) {
         </div>
       </div>
     </Card>
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -1097,6 +1266,19 @@ function linkedCount(items: LineItem[]) {
                 <Label class="text-xs">Notes</Label>
                 <Input v-model="previewHeader.notes" placeholder="Internal notes..." class="h-8 text-sm" />
               </div>
+              <div class="space-y-1.5">
+                <Label class="text-xs">Location</Label>
+                <select
+                  v-model="previewHeader.locationId"
+                  class="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  @change="onLocationChange"
+                >
+                  <option value="">Select location...</option>
+                  <option v-for="loc in locations" :key="loc._id" :value="loc._id">
+                    {{ loc.name }}
+                  </option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1114,19 +1296,19 @@ function linkedCount(items: LineItem[]) {
               </Button>
             </div>
 
-            <div class="border rounded-lg overflow-hidden">
-              <div class="overflow-x-auto">
+            <div class="border rounded-lg overflow-visible">
+              <div class="overflow-x-auto overflow-y-visible">
                 <table class="w-full text-xs table-fixed">
                   <colgroup>
                     <col class="w-[36px]" /><!-- # -->
                     <col class="w-[110px]" /><!-- Vendor Code -->
-                    <col /><!-- Description (flex: takes remaining space) -->
+                    <col /><!-- Description (takes equal remaining space) -->
                     <col class="w-[90px]" /><!-- Category -->
                     <col class="w-[70px]" /><!-- Qty -->
                     <col class="w-[60px]" /><!-- Unit -->
                     <col class="w-[85px]" /><!-- Unit $ -->
                     <col class="w-[90px]" /><!-- Ext $ -->
-                    <col class="w-[160px]" /><!-- Our SKU -->
+                    <col /><!-- Our SKU (takes equal remaining space) -->
                     <col class="w-[36px]" /><!-- Actions -->
                   </colgroup>
                   <thead class="bg-muted/50">
@@ -1156,7 +1338,14 @@ function linkedCount(items: LineItem[]) {
                           </span>
                         </td>
                       </tr>
-                      <tr class="hover:bg-muted/20 transition-colors group/row" :class="lineItem.skuLinked ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''">
+                      <tr 
+                        :id="lineItem.mappedItemId ? 'row-' + lineItem.mappedItemId : ''"
+                        class="hover:bg-muted/20 transition-colors duration-1000 group/row"
+                        :class="[
+                          highlightedItemId === lineItem.mappedItemId ? 'bg-amber-400/30 dark:bg-amber-500/30 ring-2 ring-primary/80 animate-pulse' : 
+                          lineItem.skuLinked ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''
+                        ]"
+                      >
                         <td class="px-3 py-1.5 text-muted-foreground text-center">{{ lineItem.lineNumber }}</td>
                         <td class="px-3 py-1.5">
                           <Input
@@ -1206,51 +1395,77 @@ function linkedCount(items: LineItem[]) {
                         <td class="px-3 py-1.5">
                           <!-- SKU Linker -->
                           <div v-if="lineItem.skuLinked" class="flex items-center gap-1.5">
-                            <div class="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 rounded text-emerald-700 dark:text-emerald-400 text-[10px] font-medium max-w-[130px]">
-                              <Icon name="i-lucide-link" class="size-2.5 shrink-0" />
-                              <span class="truncate">{{ lineItem.mappedSku || lineItem.mappedItemName }}</span>
-                            </div>
+                            <NuxtLink
+                              :to="`/inventory/items/${lineItem.mappedItemId}`"
+                              class="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 rounded text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800/40 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors text-[10px] font-medium flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              title="View Item Details"
+                            >
+                              <Icon name="i-lucide-arrow-right" class="size-2.5 shrink-0" />
+                              <div class="min-w-0 truncate">
+                                <span class="font-semibold">{{ lineItem.mappedItemName || '—' }}</span>
+                                <span v-if="lineItem.mappedSku" class="opacity-70 ml-1">({{ lineItem.mappedSku }})</span>
+                              </div>
+                            </NuxtLink>
                             <Button variant="ghost" size="icon" class="size-5 text-muted-foreground hover:text-destructive" @click="unlinkSku(idx)">
                               <Icon name="i-lucide-x" class="size-2.5" />
                             </Button>
                           </div>
-                          <div v-else style="position: relative;">
-                            <Input
-                              v-model="skuSearchQuery[String(idx)]"
-                              :data-sku-input="idx"
-                              class="h-6 text-xs w-full"
-                              placeholder="Search SKU..."
-                              @focus="lineItem._skuSearchOpen = true"
-                              @blur="closeSkuDropdown(lineItem)"
-                            />
-                            <Teleport to="body">
-                              <div
-                                v-if="lineItem._skuSearchOpen"
-                                class="fixed z-[9999] w-72 bg-popover border rounded-lg shadow-2xl max-h-52 overflow-y-auto"
-                                :style="skuDropdownStyle(idx)"
+                          <div v-else class="relative group/sku w-full">
+                            <Popover v-model:open="lineItem._skuSearchOpen" @update:open="(isOpen) => { if(isOpen) skuSearchQuery[String(idx)] = '' }">
+                              <PopoverTrigger as-child>
+                                <button
+                                  type="button"
+                                  class="flex h-6 w-full items-center justify-between rounded-md border border-input bg-background px-2 text-[10px] font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground"
+                                >
+                                  <span class="text-muted-foreground truncate">Select SKU...</span>
+                                  <Icon name="i-lucide-chevrons-up-down" class="size-3 shrink-0 opacity-50" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                class="p-0 w-72 max-h-72 flex flex-col shadow-2xl overflow-hidden"
+                                align="start"
+                                :side-offset="4"
                               >
-                                <div v-if="filteredItemsForSku(idx).length === 0 && !skuSearchQuery[String(idx)]?.trim()" class="px-3 py-3 text-xs text-muted-foreground text-center">
-                                  Type to search items...
+                                <div class="flex items-center border-b px-2.5 py-2">
+                                  <Icon name="i-lucide-search" class="size-3.5 text-muted-foreground mr-2 shrink-0" />
+                                  <input
+                                    v-model="skuSearchQuery[String(idx)]"
+                                    class="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                                    placeholder="Search items..."
+                                    autofocus
+                                  >
                                 </div>
-                                <div
-                                  v-for="item in filteredItemsForSku(idx)"
-                                  :key="item._id"
-                                  class="px-3 py-2 hover:bg-muted cursor-pointer transition-colors"
-                                  @mousedown.prevent="linkSku(idx, item)"
-                                >
-                                  <p class="font-medium text-xs">{{ item.item }}</p>
-                                  <p class="text-[10px] text-muted-foreground font-mono">{{ item.itemSKU || 'No SKU' }}</p>
+                                <div class="flex-1 overflow-y-auto max-h-48 py-1">
+                                  <div v-if="filteredItemsForSku(idx).length === 0 && !skuSearchQuery[String(idx)]?.trim()" class="px-3 py-4 text-xs text-muted-foreground text-center">
+                                    Type to search items...
+                                  </div>
+                                  <div
+                                    v-for="item in filteredItemsForSku(idx)"
+                                    :key="item._id"
+                                    class="px-2.5 py-1.5 hover:bg-muted cursor-pointer transition-colors"
+                                    @click="linkSku(idx, item)"
+                                  >
+                                    <p class="font-medium text-xs truncate">{{ item.item }}</p>
+                                    <p class="text-[10px] text-muted-foreground font-mono">{{ item.itemSKU || 'No SKU' }}</p>
+                                  </div>
+                                  <div v-if="filteredItemsForSku(idx).length === 0 && skuSearchQuery[String(idx)]?.trim()" class="px-3 py-4 text-xs text-center text-muted-foreground">
+                                    No exact match found.
+                                  </div>
                                 </div>
-                                <div
-                                  v-if="skuSearchQuery[String(idx)]?.trim() && !skuSearchHasExactMatch(idx)"
-                                  class="px-3 py-2.5 hover:bg-primary/10 cursor-pointer border-t flex items-center gap-2 text-primary transition-colors"
-                                  @mousedown.prevent="addNewItemFromSku(idx)"
-                                >
-                                  <Icon name="i-lucide-plus-circle" class="size-3.5 shrink-0" />
-                                  <span class="text-xs font-medium">Add "{{ skuSearchQuery[String(idx)]?.trim() }}"</span>
+                                <div class="border-t p-1 bg-muted/5">
+                                  <button
+                                    type="button"
+                                    class="w-full flex items-center gap-2 rounded-md px-2 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                    @click="openNewItemDialog(idx)"
+                                  >
+                                    <Icon name="i-lucide-plus-circle" class="size-3.5 text-emerald-500 shrink-0" />
+                                    <span class="truncate font-medium">
+                                      {{ skuSearchQuery[String(idx)]?.trim() ? `Add "${skuSearchQuery[String(idx)]?.trim()}"` : 'Add new item to inventory' }}
+                                    </span>
+                                  </button>
                                 </div>
-                              </div>
-                            </Teleport>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         </td>
                         <td class="px-2 py-1.5">

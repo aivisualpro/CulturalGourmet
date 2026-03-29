@@ -95,8 +95,12 @@ async function handleDelete() {
 }
 
 async function handleReset() { search.value = ''; await fetchItems(); toast.info('Refreshed') }
-</script>
 
+function formatWAC(val: number | undefined) {
+  if (!val || val <= 0) return '—'
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val)
+}
+</script>
 <template>
   <ClientOnly>
     <Teleport :to="`#${HEADER_ACTIONS_ID}`" defer>
@@ -139,6 +143,8 @@ async function handleReset() { search.value = ''; await fetchItems(); toast.info
               <TableHead>Item</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Sub Category</TableHead>
+              <TableHead class="text-right whitespace-nowrap">Avg. Cost</TableHead>
+              <TableHead class="text-right whitespace-nowrap">Available</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead class="w-[80px] text-right">Actions</TableHead>
             </TableRow>
@@ -155,9 +161,18 @@ async function handleReset() { search.value = ''; await fetchItems(); toast.info
                 <Badge v-if="fi.subCategory" variant="secondary" class="text-xs font-normal">{{ fi.subCategory }}</Badge>
                 <span v-else class="text-muted-foreground text-sm">—</span>
               </TableCell>
+              <TableCell class="text-right tabular-nums">
+                <span v-if="(fi.wac || 0) > 0" class="font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{{ formatWAC(fi.wac) }}</span>
+                <span v-else class="text-muted-foreground/40">—</span>
+              </TableCell>
+              <TableCell class="text-right tabular-nums">
+                <span class="font-bold text-base" :class="(fi.qoh || 0) > 0 ? 'text-primary' : (fi.qoh || 0) < 0 ? 'text-destructive' : 'text-muted-foreground'">
+                  {{ fi.qoh || 0 }}
+                </span>
+              </TableCell>
               <TableCell>
-                <span v-if="fi.unit" class="text-sm font-medium">{{ getUnitAbbr(fi.unit) || fi.unit }}</span>
-                <span v-else class="text-muted-foreground text-sm">—</span>
+                <span v-if="fi.unit" class="text-sm font-medium text-muted-foreground/80">{{ getUnitAbbr(fi.unit) || fi.unit }}</span>
+                <span v-else class="text-muted-foreground/40">—</span>
               </TableCell>
               <TableCell class="text-right">
                 <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -168,7 +183,7 @@ async function handleReset() { search.value = ''; await fetchItems(); toast.info
               </TableCell>
             </TableRow>
             <TableRow v-if="filtered.length === 0">
-              <TableCell :colspan="6" class="h-32 text-center">
+              <TableCell :colspan="8" class="h-32 text-center">
                 <div class="flex flex-col items-center gap-2 text-muted-foreground">
                   <Icon name="i-lucide-inbox" class="size-8" /><p>No items found</p>
                   <Button size="sm" variant="outline" @click="openCreate"><Icon name="i-lucide-plus" class="mr-1 size-4" />Add Item</Button>

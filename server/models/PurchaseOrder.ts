@@ -49,6 +49,10 @@ export interface IPurchaseOrder extends Document {
   vendorId?: string             // Reference to CG_Vendors._id
   vendorName: string            // Denormalised for display speed
 
+  // Location
+  locationId?: string           // Reference to CG_Locations._id
+  locationName?: string         // Denormalised for display
+
   // Invoice Header (extracted from PDF)
   invoiceNumber: string
   invoiceDate?: Date
@@ -127,6 +131,8 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     },
     vendorId: { type: String },
     vendorName: { type: String, required: true, trim: true },
+    locationId: { type: String },
+    locationName: { type: String, trim: true },
     invoiceNumber: { type: String, trim: true, default: '' },
     invoiceDate: { type: Date },
     deliveryDate: { type: Date },

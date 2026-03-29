@@ -13,22 +13,42 @@ export default defineEventHandler(async (event) => {
   const filter: Record<string, any> = {}
   if (status && status !== 'all') filter.status = status
   if (vendorId) filter.vendorId = vendorId
+  
+  if (query.dateFrom || query.dateTo) {
+    filter.invoiceDate = {}
+    if (query.dateFrom) filter.invoiceDate.$gte = new Date(query.dateFrom as string)
+    if (query.dateTo) filter.invoiceDate.$lte = new Date(query.dateTo as string)
+  }
+
   if (search) {
     filter.$or = [
       { vendorName: { $regex: search, $options: 'i' } },
       { invoiceNumber: { $regex: search, $options: 'i' } },
+      { orderNumber: { $regex: search, $options: 'i' } },
+      { notes: { $regex: search, $options: 'i' } },
+      { 'lineItems.description': { $regex: search, $options: 'i' } },
+      { 'lineItems.mappedItemName': { $regex: search, $options: 'i' } },
+      { 'lineItems.mappedSku': { $regex: search, $options: 'i' } },
+      { 'lineItems.vendorCode': { $regex: search, $options: 'i' } },
     ]
   }
 
-  const [items, total] = await Promise.all([
+  const [rawItems, total] = await Promise.all([
     PurchaseOrder.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('-rawExtractedText -lineItems')
+      .select('-rawExtractedText')
       .lean(),
     PurchaseOrder.countDocuments(filter),
   ])
+
+  // Compute linkedItemCount and strip bulky lineItems from response
+  const items = rawItems.map((po: any) => {
+    const linkedItemCount = (po.lineItems || []).filter((li: any) => li.skuLinked).length
+    const { lineItems, ...rest } = po
+    return { ...rest, linkedItemCount }
+  })
 
   return { items, total, page, limit }
 })

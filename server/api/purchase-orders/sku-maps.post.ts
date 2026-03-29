@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const map = await VendorSkuMap.findOneAndUpdate(
     { vendorId, vendorSku },
     { $set: { vendorId, vendorSku, ...rest } },
-    { upsert: true, new: true, runValidators: true },
+    { upsert: true, returnDocument: 'after', runValidators: true },
   )
   return map
 })
