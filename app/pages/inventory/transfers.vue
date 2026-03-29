@@ -43,12 +43,12 @@ const saving = ref(false)
 const deletingTransfer = ref<string | null>(null)
 const showDeleteDialog = ref(false)
 
-const draftTransfer = ref<any>({
+const draftTransfer = ref({
   date: new Date().toISOString().split('T')[0],
   sourceLocationId: '',
   destinationLocationId: '',
   notes: '',
-  lineItems: [],
+  lineItems: [] as any[],
 })
 
 function resetDraft() {
@@ -57,7 +57,7 @@ function resetDraft() {
     sourceLocationId: '',
     destinationLocationId: '',
     notes: '',
-    lineItems: [],
+    lineItems: [] as any[],
   }
 }
 
@@ -302,7 +302,7 @@ async function handleDelete() {
               <div class="flex-1 w-full min-w-[200px]">
                 <Select
                   :model-value="line.itemId"
-                  @update:model-value="(val) => onItemSelected(idx, val)"
+                  @update:model-value="(val) => onItemSelected(idx, val as string)"
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select Inventory Item...">
