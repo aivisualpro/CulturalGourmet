@@ -360,12 +360,39 @@ async function processUpload() {
   editingOrderId.value = null
 
   try {
-    const formData = new FormData()
-    formData.append('file', selectedFile.value)
+    const sigRes = await $fetch<any>('/api/cloudinary/sign')
+    const cldForm = new FormData()
+    cldForm.append('file', selectedFile.value)
+    cldForm.append('api_key', sigRes.apiKey)
+    cldForm.append('timestamp', sigRes.timestamp)
+    cldForm.append('signature', sigRes.signature)
+    cldForm.append('folder', sigRes.folder)
+
+    // Using toast instead of progress bars to keep UI clean during the 15MB transfer
+    toast.info('Uploading large document (this bypasses limits)...')
+
+    // Cloudinary parses PDFs out-of-the-box via the "auto" or "raw" endpoint for large files.
+    // For PDFs processed later by pdf.js or gemini, "raw" is preferred
+    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${sigRes.cloudName}/raw/upload`, {
+      method: 'POST',
+      body: cldForm
+    })
+    const cldResult = await uploadResponse.json()
+
+    if (!uploadResponse.ok) {
+      throw new Error(cldResult.error?.message || 'Failed to upload document to secure vault')
+    }
+
+    toast.info('Extracting structured text from document... Almost done.')
 
     const res = await $fetch<{ parsed: any, pdfAttachment: any }>('/api/purchase-orders/upload', {
       method: 'POST',
-      body: formData,
+      body: {
+        pdfUrl: cldResult.secure_url,
+        publicId: cldResult.public_id,
+        bytes: cldResult.bytes,
+        originalFileName: selectedFile.value.name
+      },
     })
 
     const p = res.parsed

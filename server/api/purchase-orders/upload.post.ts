@@ -1,15 +1,22 @@
 import { useCloudinary, GALLERY_FOLDER } from '~~/server/utils/cloudinary'
 import { parsePurchaseOrderPdf } from '~~/server/utils/pdfParser'
 
-export default defineEventHandler(async (event) => {
-  const formData = await readMultipartFormData(event)
-  if (!formData) throw createError({ statusCode: 400, message: 'No form data' })
+export default defineEventHandler(async (event: any) => {
+  const body = await readBody(event)
+  if (!body || !body.pdfUrl) {
+    throw createError({ statusCode: 400, message: 'Missing pdfUrl from client. Cloudinary client-side upload must execute first.' })
+  }
 
-  const filePart = formData.find(f => f.name === 'file')
-  if (!filePart || !filePart.data) throw createError({ statusCode: 400, message: 'No PDF file uploaded' })
+  const { pdfUrl, publicId, bytes, originalFileName } = body
 
-  const originalFileName = filePart.filename || 'invoice.pdf'
-  const buffer = filePart.data
+  // Download the PDF file over the wire exclusively on the backend (Vercel allows huge outbound downloads, avoiding the 4.5MB ingress limit!)
+  let buffer: Buffer
+  try {
+    const arrayBuffer = await $fetch<ArrayBuffer>(pdfUrl, { responseType: 'arrayBuffer' })
+    buffer = Buffer.from(arrayBuffer)
+  } catch (err: any) {
+    throw createError({ statusCode: 500, message: `Failed to download secure URL from Cloudinary: ${err?.message}` })
+  }
 
   if (buffer.length > 50 * 1024 * 1024) {
     throw createError({ statusCode: 400, message: 'File too large (max 50 MB)' })
@@ -18,49 +25,19 @@ export default defineEventHandler(async (event) => {
   // ─── Parse PDF Text ──────────────────────────────────────
   let parsed
   try {
-    parsed = await parsePurchaseOrderPdf(buffer, originalFileName)
-  }
-  catch (err: any) {
+    parsed = await parsePurchaseOrderPdf(buffer, originalFileName || 'invoice.pdf')
+  } catch (err: any) {
     throw createError({ statusCode: 422, message: `PDF parsing failed: ${err?.message || 'Unknown error'}` })
   }
 
-  // ─── Upload to Cloudinary as raw (downloadable PDF) ──────
-  let pdfAttachment: any = null
-  try {
-    const cld = useCloudinary()
-    const folder = `${GALLERY_FOLDER}/purchase-orders`
-
-    const uploadResult = await new Promise<any>((resolve, reject) => {
-      const uploadStream = cld.uploader.upload_stream(
-        {
-          folder,
-          resource_type: 'image',
-          use_filename: true,
-          unique_filename: true,
-          access_mode: 'public',
-          type: 'upload',
-          format: 'pdf',
-        },
-        (error: any, result: any) => {
-          if (error) reject(error)
-          else resolve(result)
-        },
-      )
-      uploadStream.end(buffer)
-    })
-
-    pdfAttachment = {
-      cloudinaryPublicId: uploadResult.public_id,
-      secureUrl: uploadResult.secure_url,
-      originalFileName,
-      fileSizeBytes: buffer.length,
-      pageCount: parsed.pageCount,
-      uploadedAt: new Date(),
-    }
-  }
-  catch (err: any) {
-    console.error('[PO Upload] Cloudinary error:', err?.message)
-    pdfAttachment = null
+  // Bind the existing Cloudinary reference into our standard attachment metadata packet
+  const pdfAttachment = {
+    cloudinaryPublicId: publicId,
+    secureUrl: pdfUrl,
+    originalFileName: originalFileName || 'invoice.pdf',
+    fileSizeBytes: bytes || buffer.length,
+    pageCount: parsed.pageCount || 1,
+    uploadedAt: new Date(),
   }
 
   return { parsed, pdfAttachment }
