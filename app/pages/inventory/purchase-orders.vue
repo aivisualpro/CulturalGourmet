@@ -77,7 +77,8 @@ interface PurchaseOrder {
   locationName?: string
   lineItems?: LineItem[]
   pdfAttachment?: {
-    secureUrl: string
+    secureUrl?: string
+    cloudinaryPublicId?: string
     originalFileName: string
     pageCount: number
     fileSizeBytes: number
@@ -113,10 +114,13 @@ const vendorSummaries = ref<{ vendorId: string, vendorName: string, totalOrders:
 // ─── Upload / Preview Flow ────────────────────────────────────────────────────
 const showUploadDialog = ref(false)
 const showPreviewDialog = ref(false)
+const showDocumentPreviewDialog = ref(false)
+const documentPreviewUrl = ref<string | null>(null)
+const documentPreviewTitle = ref('Document Viewer')
 const showDeleteDialog = ref(false)
 
 // Aggressively strip active element focus when any dialog opens to prevent Vaul/Radix aria-hidden collision warnings
-watch([showUploadDialog, showPreviewDialog, showDeleteDialog], (isOpenStates) => {
+watch([showUploadDialog, showPreviewDialog, showDocumentPreviewDialog, showDeleteDialog], (isOpenStates) => {
   if (import.meta.client && isOpenStates.some(Boolean)) {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur()
@@ -768,6 +772,17 @@ async function handleSave() {
   }
 }
 
+function openDocumentViewer(order: PurchaseOrder) {
+  if (!order.pdfAttachment) return
+  if (order.pdfAttachment.secureUrl) {
+    documentPreviewUrl.value = `/api/purchase-orders/pdf/${order._id}`
+  } else if (order.pdfAttachment.cloudinaryPublicId) {
+    documentPreviewUrl.value = `/api/cloudinary/proxy?publicId=${encodeURIComponent(order.pdfAttachment.cloudinaryPublicId)}&filename=${encodeURIComponent(order.pdfAttachment.originalFileName || 'document.pdf')}`
+  }
+  documentPreviewTitle.value = order.pdfAttachment.originalFileName || `Invoice - ${order.vendorName}`
+  showDocumentPreviewDialog.value = true
+}
+
 // ─── Detail View (reuses preview dialog) ─────────────────────────────────────
 async function openDetail(order: PurchaseOrder) {
   try {
@@ -1098,12 +1113,10 @@ function linkedCount(items: LineItem[]) {
               </TableCell>
               <TableCell>
                 <a
-                  v-if="order.pdfAttachment?.secureUrl"
-                  :href="`/api/purchase-orders/pdf/${order._id}`"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                  @click.stop
+                  v-if="order.pdfAttachment"
+                  href="#"
+                  class="inline-flex items-center gap-1 text-xs text-primary hover:underline hover:text-primary/80 transition-colors cursor-pointer"
+                  @click.stop.prevent="openDocumentViewer(order)"
                 >
                   <Icon name="i-lucide-paperclip" class="size-3" />
                   PDF
@@ -1694,6 +1707,52 @@ function linkedCount(items: LineItem[]) {
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- IN-APP DOCUMENT VIEWER                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <Dialog v-model:open="showDocumentPreviewDialog">
+    <DialogContent class="max-w-[85vw] sm:max-w-[85vw] w-full h-[95vh] flex flex-col p-0 gap-0 overflow-hidden [&>button:last-child]:hidden">
+      <!-- Screen Reader Rules -->
+      <DialogTitle class="sr-only">Document Viewer</DialogTitle>
+      <DialogDescription class="sr-only">Preview the attached document</DialogDescription>
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between px-4 py-3 border-b bg-muted/40 shrink-0">
+        <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
+          <div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Icon name="i-lucide-file-text" class="size-4 text-primary" />
+          </div>
+          <p class="font-medium text-sm truncate flex-1">{{ documentPreviewTitle }}</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <Button size="sm" variant="outline" class="h-8 gap-2" asChild>
+            <a :href="documentPreviewUrl || '#'" target="_blank" download>
+              <Icon name="i-lucide-download" class="size-4" />
+              Download
+            </a>
+          </Button>
+          <Button size="icon" variant="ghost" class="size-8 rounded-full" @click="showDocumentPreviewDialog = false">
+            <Icon name="i-lucide-x" class="size-4" />
+          </Button>
+        </div>
+      </div>
+      
+      <!-- Viewer Body -->
+      <div class="flex-1 w-full bg-zinc-900 overflow-hidden relative">
+        <iframe 
+          v-if="documentPreviewUrl" 
+          :src="documentPreviewUrl" 
+          class="absolute inset-0 w-full h-full border-0" 
+          title="Document Preview"
+        ></iframe>
+        <div v-else class="flex flex-col items-center justify-center h-full text-zinc-500">
+          <Icon name="i-lucide-file-question" class="size-12 mb-3 opacity-50" />
+          <p>Document source unavailable.</p>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
 
 </template>
 
