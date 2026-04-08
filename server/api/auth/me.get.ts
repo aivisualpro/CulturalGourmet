@@ -4,18 +4,18 @@ import { getUserSession } from '../../utils/auth'
 export default defineEventHandler(async (event) => {
   const authHeader = getHeader(event, 'authorization')
   if (!authHeader?.startsWith('Bearer ')) {
-    throw createError({ statusCode: 401, message: 'Unauthorized' })
+    return { success: false, valid: false, message: 'Unauthorized' }
   }
 
   const token = authHeader.slice(7)
   const session = getUserSession(token)
   if (!session) {
-    throw createError({ statusCode: 401, message: 'Session expired' })
+    return { success: false, valid: false, message: 'Session expired' }
   }
 
   const user = await User.findById(session.userId).select('-password -emailVerificationCode -resetPasswordCode')
   if (!user) {
-    throw createError({ statusCode: 401, message: 'Account not found', data: { forceLogout: true } })
+    return { success: false, valid: false, message: 'Account not found', forceLogout: true }
   }
 
   // Force logout if user has been rejected or deactivated

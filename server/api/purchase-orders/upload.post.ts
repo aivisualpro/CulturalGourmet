@@ -1,30 +1,25 @@
-import { useCloudinary, GALLERY_FOLDER } from '~~/server/utils/cloudinary'
 import { parsePurchaseOrderPdf } from '~~/server/utils/pdfParser'
+import { useGoogleCloudStorage } from '~~/server/utils/gcs'
 
 export default defineEventHandler(async (event: any) => {
   const body = await readBody(event)
-  if (!body || !body.pdfUrl) {
-    throw createError({ statusCode: 400, message: 'Missing pdfUrl from client. Cloudinary client-side upload must execute first.' })
-  }
 
-  const { pdfUrl, publicId, bytes, originalFileName } = body
+  const { bucket, filename, bytes, originalFileName } = body
 
-  const cld = useCloudinary()
-  // Cloudinary explicitly blocks arbitrary downloads of PDFs due to Strict Delivery settings.
-  // We use our API Secret to generate an authenticated download URL.
-  const authenticatedUrl = cld.url(publicId, { resource_type: 'raw', type: 'authenticated', sign_url: true })
+  const gcs = useGoogleCloudStorage()
+  const fileRef = gcs.bucket(bucket).file(filename)
 
-  // Download the PDF file over the wire exclusively on the backend
+  // Download the PDF file over the wire from GCS seamlessly
   let buffer: Buffer
   try {
-    const arrayBuffer = await $fetch<ArrayBuffer>(authenticatedUrl, { responseType: 'arrayBuffer' })
-    buffer = Buffer.from(arrayBuffer)
+    const [fileBuffer] = await fileRef.download()
+    buffer = fileBuffer
   } catch (err: any) {
-    throw createError({ statusCode: 500, message: `Failed to download strictly secured URL from Cloudinary: ${err?.message}` })
+    throw createError({ statusCode: 500, message: `Failed to download secure URL from Google Cloud Bucket: ${err?.message}` })
   }
 
   if (buffer.length > 50 * 1024 * 1024) {
-    throw createError({ statusCode: 400, message: 'File too large (max 50 MB)' })
+    throw createError({ statusCode: 413, message: 'File is too large visually even for backend limits (max 50MB).' })
   }
 
   // ─── Parse PDF Text ──────────────────────────────────────
@@ -35,10 +30,10 @@ export default defineEventHandler(async (event: any) => {
     throw createError({ statusCode: 422, message: `PDF parsing failed: ${err?.message || 'Unknown error'}` })
   }
 
-  // Bind the existing Cloudinary reference into our standard attachment metadata packet
+  // Bind the GCS reference into our standard attachment metadata packet to not break the schema
   const pdfAttachment = {
-    cloudinaryPublicId: publicId,
-    secureUrl: pdfUrl,
+    cloudinaryPublicId: filename, // Repurposing field seamlessly
+    secureUrl: `https://storage.googleapis.com/${bucket}/${filename}`,
     originalFileName: originalFileName || 'invoice.pdf',
     fileSizeBytes: bytes || buffer.length,
     pageCount: parsed.pageCount || 1,

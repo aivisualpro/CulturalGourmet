@@ -427,6 +427,9 @@ export async function parsePurchaseOrderPdf(buffer: Buffer, originalFileName: st
         IMPORTANT RULES:
         - Do not make up numbers. Use 0 for missing numbers and "" for missing strings.
         - Parse the line items exactly. Ensure quantity, unitPrice, and extendedPrice match exactly.
+        - EXTRACT EVERY SINGLE LINE ITEM. Scan all pages. Do NOT truncate, abbreviate, or summarize the lineItems array under ANY circumstances.
+        - Items may not have explicit table headers. Look carefully for any lists of purchased products, baked goods, goods, or supplies (especially for bakeries like Gold Crust).
+        - MULTIPLE INVOICES: If this PDF contains multiple different invoices or pages (e.g. a batched document), you MUST COMBINE them into a SINGLE JSON object. Combine all line items into one single array, sum all the subtotals/totals, and use the comma-separated string of invoice numbers for 'invoiceNumber'. NEVER output multiple JSON objects or a JSON array at the root level.
         - If there's no "vendorItemCode", use "" instead of making one up.
         - For vendorPhone, vendorEmail, vendorAddress: extract from the vendor/company header area of the invoice (fax numbers count as phone if no phone number is present).
         - vendorAddress should be the full street address of the vendor company (NOT the sold-to or ship-to address).
@@ -443,19 +446,25 @@ export async function parsePurchaseOrderPdf(buffer: Buffer, originalFileName: st
       ])
 
       const rawText = result.response.text()
-      const cleanJson = rawText.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
-      const parsedJson = JSON.parse(cleanJson)
       
-      return {
-        ...parsedJson,
-        totalItems: parsedJson.lineItems?.length || 0,
-        pageCount: 1, // Fallback since Gemini doesn't report page count trivially
-        rawText: 'Extracted via Google AI (Vertex AI)'
-      } as ParsedInvoice
+      // Safely strip standard markdown backticks
+      const cleanJson = rawText.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
+      
+      try {
+        const parsedJson = JSON.parse(cleanJson)
+        return {
+          ...parsedJson,
+          totalItems: parsedJson.lineItems?.length || 0,
+          pageCount: 1, // Fallback since Gemini doesn't report page count trivially
+          rawText: 'Extracted via Google AI (Vertex AI)'
+        } as ParsedInvoice
+      } catch (e: any) {
+        throw new Error(`JSON_PARSE_ERROR: ${e.message}\nRAW JSON DUMP:\n${cleanJson}`)
+      }
 
     } catch (err: any) {
-      console.warn('[Gemini AI] PDF parsing failed, falling back to legacy regex engine:', err?.message)
-      // Fall through to legacy parsing if API fails
+      console.warn('[Gemini AI] PDF parsing failed:', err?.message)
+      throw new Error(`GEMINI_FAIL: ${err?.message} | stack: ${err.stack}`)
     }
   }
 

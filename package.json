@@ -44,6 +44,7 @@
     "release": "release-it"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.15.0",
     "@google/generative-ai": "^0.24.1",
     "@iconify-json/lucide": "^1.2.68",
     "@iconify-json/radix-icons": "^1.2.5",

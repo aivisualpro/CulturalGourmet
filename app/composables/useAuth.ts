@@ -252,6 +252,20 @@ export function useAuth() {
       const res = await $fetch<any>('/api/auth/me', {
         headers: { Authorization: `Bearer ${token.value}` },
       })
+      
+      // Intercept the new graceful 200 response that indicates an invalid token
+      // This totally circumvents the browser network console from seeing an error
+      if (res && res.valid === false) {
+        token.value = null
+        user.value = null
+        if (import.meta.client) {
+          localStorage.removeItem(AUTH_TOKEN_KEY)
+          localStorage.removeItem(AUTH_USER_KEY)
+          navigateTo('/login')
+        }
+        return false
+      }
+
       // Update user state from server
       if (res?.user) {
         user.value = res.user
@@ -260,14 +274,19 @@ export function useAuth() {
     }
     catch (err: any) {
       const data = err?.data?.data || err?.data
-      if (data?.forceLogout || err?.statusCode === 403 || err?.status === 403) {
-        // User has been rejected/deleted — force logout
+      if (data?.forceLogout || err?.statusCode === 403 || err?.status === 403 || err?.statusCode === 401 || err?.status === 401) {
+        // User has been rejected/deleted or token expired — force logout
         token.value = null
         user.value = null
         if (import.meta.client) {
           localStorage.removeItem(AUTH_TOKEN_KEY)
           localStorage.removeItem(AUTH_USER_KEY)
-          window.location.href = '/login?reason=revoked'
+          
+          if (err?.statusCode === 403) {
+            window.location.href = '/login?reason=revoked'
+          } else {
+            navigateTo('/login')
+          }
         }
         return false
       }

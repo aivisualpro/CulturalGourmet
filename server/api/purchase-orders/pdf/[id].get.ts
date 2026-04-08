@@ -7,7 +7,7 @@ import { useCloudinary } from '~~/server/utils/cloudinary'
  * Cloudinary restricts direct access to raw resources by default —
  * signing the URL server-side authenticates the request.
  */
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: any) => {
   const id = getRouterParam(event, 'id')
   const po = await PurchaseOrder.findById(id).lean() as any
   if (!po) throw createError({ statusCode: 404, message: 'Purchase order not found' })
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     const buffer = Buffer.from(arrayBuffer)
 
     setResponseHeader(event, 'Content-Type', 'application/pdf')
-    setResponseHeader(event, 'Content-Disposition', `attachment; filename="${attachment.originalFileName || `PO-${po.invoiceNumber || id}.pdf`}"`)
+    setResponseHeader(event, 'Content-Disposition', `inline; filename="${attachment.originalFileName || `PO-${po.invoiceNumber || id}.pdf`}"`)
     
     return buffer
   } catch (error) {

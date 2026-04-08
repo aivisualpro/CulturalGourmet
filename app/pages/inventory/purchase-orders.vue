@@ -113,6 +113,16 @@ const vendorSummaries = ref<{ vendorId: string, vendorName: string, totalOrders:
 // ─── Upload / Preview Flow ────────────────────────────────────────────────────
 const showUploadDialog = ref(false)
 const showPreviewDialog = ref(false)
+const showDeleteDialog = ref(false)
+
+// Aggressively strip active element focus when any dialog opens to prevent Vaul/Radix aria-hidden collision warnings
+watch([showUploadDialog, showPreviewDialog, showDeleteDialog], (isOpenStates) => {
+  if (import.meta.client && isOpenStates.some(Boolean)) {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+  }
+})
 const uploading = ref(false)
 const saving = ref(false)
 
@@ -224,7 +234,7 @@ const detailOrder = ref<PurchaseOrder | null>(null)
 const detailLoading = ref(false)
 
 // ─── Delete dialog ────────────────────────────────────────────────────────────
-const showDeleteDialog = ref(false)
+
 const deletingOrder = ref<PurchaseOrder | null>(null)
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -360,39 +370,33 @@ async function processUpload() {
   editingOrderId.value = null
 
   try {
-    const sigRes = await $fetch<any>('/api/cloudinary/sign')
-    const cldForm = new FormData()
-    cldForm.append('file', selectedFile.value)
-    cldForm.append('api_key', sigRes.apiKey)
-    cldForm.append('timestamp', sigRes.timestamp)
-    cldForm.append('signature', sigRes.signature)
-    cldForm.append('folder', sigRes.folder)
-    cldForm.append('type', 'authenticated')
-
-    // Using toast instead of progress bars to keep UI clean during the 15MB transfer
-    toast.info('Uploading large document (this bypasses limits)...')
-
-    // Cloudinary parses PDFs out-of-the-box via the "auto" or "raw" endpoint for large files.
-    // For PDFs processed later by pdf.js or gemini, "raw" is preferred
-    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${sigRes.cloudName}/raw/upload`, {
-      method: 'POST',
-      body: cldForm
+    const file = selectedFile.value
+    // Get GCS signed upload URL
+    const sigRes = await $fetch<any>(`/api/upload/gcs-sign?filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/pdf')}`)
+    
+    // Upload directly to Google Cloud Storage (Limitless size)
+    const uploadResponse = await fetch(sigRes.url, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'application/pdf'
+      }
     })
-    const cldResult = await uploadResponse.json()
 
     if (!uploadResponse.ok) {
-      throw new Error(cldResult.error?.message || 'Failed to upload document to secure vault')
+      throw new Error(`Failed to safely ingest into secure Cloud Bucket: ${uploadResponse.statusText}`)
     }
 
-    toast.info('Extracting structured text from document... Almost done.')
+    toast.info('Extracting structured text via Gemini AI... Almost done.')
 
+    // Tell the backend to process the file sitting in GCS seamlessly
     const res = await $fetch<{ parsed: any, pdfAttachment: any }>('/api/purchase-orders/upload', {
       method: 'POST',
       body: {
-        pdfUrl: cldResult.secure_url,
-        publicId: cldResult.public_id,
-        bytes: cldResult.bytes,
-        originalFileName: selectedFile.value.name
+        bucket: sigRes.bucket,
+        filename: sigRes.filename,
+        originalFileName: file.name,
+        bytes: file.size
       },
     })
 
@@ -1223,6 +1227,9 @@ function linkedCount(items: LineItem[]) {
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <Dialog v-model:open="showPreviewDialog">
     <DialogContent class="max-w-[70vw] sm:max-w-[70vw] w-full max-h-[95vh] flex flex-col p-0 gap-0 [&>button:last-child]:hidden">
+      <!-- Screen Reader Accessibility Requirements -->
+      <DialogTitle class="sr-only">Purchase Order Details</DialogTitle>
+      <DialogDescription class="sr-only">Review, edit, and save extracted invoice data.</DialogDescription>
       <!-- Header Bar -->
       <div class="flex items-center justify-between px-6 py-4 border-b bg-muted/30">
         <div class="flex items-center gap-3">
