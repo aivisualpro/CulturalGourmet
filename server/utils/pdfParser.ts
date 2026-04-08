@@ -460,14 +460,13 @@ export async function parsePurchaseOrderPdf(buffer: Buffer, originalFileName: st
   }
 
   // ─── Legacy Engine Fallback ──────────────────────────────────────────────────
-  // pdf-parse v2 uses a class-based API: new PDFParse({ data }) then .getText()
-  const { PDFParse } = await import('pdf-parse')
-  const parser = new PDFParse({ data: buffer })
-  const textResult = await parser.getText()
-  await parser.destroy()
+  // pdf-parse v1 uses a function-based API: pdfParse(buffer).then(data => data.text)
+  const pdfParseModule = (await import('pdf-parse')) as any
+  const pdfParse = pdfParseModule.default || pdfParseModule
+  const textResult = typeof pdfParse === 'function' ? await pdfParse(buffer) : await pdfParse.default(buffer)
 
   const rawText = textResult.text || ''
-  const pageCount = textResult.total || 1
+  const pageCount = textResult.numpages || 1
   const vendorType = detectVendor(rawText)
 
   let parsed: Partial<ParsedInvoice>
