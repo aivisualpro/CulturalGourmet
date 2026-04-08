@@ -9,13 +9,18 @@ export default defineEventHandler(async (event: any) => {
 
   const { pdfUrl, publicId, bytes, originalFileName } = body
 
-  // Download the PDF file over the wire exclusively on the backend (Vercel allows huge outbound downloads, avoiding the 4.5MB ingress limit!)
+  const cld = useCloudinary()
+  // Cloudinary explicitly blocks arbitrary downloads of PDFs due to Strict Delivery settings.
+  // We use our API Secret to generate an authenticated download URL.
+  const authenticatedUrl = cld.url(publicId, { resource_type: 'raw', type: 'authenticated', sign_url: true })
+
+  // Download the PDF file over the wire exclusively on the backend
   let buffer: Buffer
   try {
-    const arrayBuffer = await $fetch<ArrayBuffer>(pdfUrl, { responseType: 'arrayBuffer' })
+    const arrayBuffer = await $fetch<ArrayBuffer>(authenticatedUrl, { responseType: 'arrayBuffer' })
     buffer = Buffer.from(arrayBuffer)
   } catch (err: any) {
-    throw createError({ statusCode: 500, message: `Failed to download secure URL from Cloudinary: ${err?.message}` })
+    throw createError({ statusCode: 500, message: `Failed to download strictly secured URL from Cloudinary: ${err?.message}` })
   }
 
   if (buffer.length > 50 * 1024 * 1024) {

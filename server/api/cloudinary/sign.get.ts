@@ -10,7 +10,8 @@ export default defineEventHandler((event: any) => {
 
     const paramsToSign = {
         timestamp,
-        folder: folderName
+        folder: folderName,
+        type: 'authenticated'
     }
 
     const signature = cld.utils.api_sign_request(paramsToSign, process.env.CLOUDINARY_CLOUD_API_SECRET!)

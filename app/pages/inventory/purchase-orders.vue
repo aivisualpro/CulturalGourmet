@@ -367,6 +367,7 @@ async function processUpload() {
     cldForm.append('timestamp', sigRes.timestamp)
     cldForm.append('signature', sigRes.signature)
     cldForm.append('folder', sigRes.folder)
+    cldForm.append('type', 'authenticated')
 
     // Using toast instead of progress bars to keep UI clean during the 15MB transfer
     toast.info('Uploading large document (this bypasses limits)...')
@@ -1649,14 +1650,14 @@ function linkedCount(items: LineItem[]) {
             </div>
             <a v-if="editingOrderId" :href="`/api/purchase-orders/pdf/${editingOrderId}`" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm" class="h-7 text-xs gap-1.5">
-                <Icon name="i-lucide-download" class="size-3.5" />
-                Download
+                <Icon name="i-lucide-eye" class="size-3.5" />
+                Preview File
               </Button>
             </a>
-            <a v-else-if="pdfAttachment?.secureUrl" :href="pdfAttachment.secureUrl" target="_blank" rel="noopener noreferrer">
+            <a v-else-if="pdfAttachment?.cloudinaryPublicId" :href="`/api/cloudinary/proxy?publicId=${encodeURIComponent(pdfAttachment.cloudinaryPublicId)}&filename=${encodeURIComponent(pdfAttachment.originalFileName || 'document.pdf')}`" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm" class="h-7 text-xs gap-1.5">
-                <Icon name="i-lucide-download" class="size-3.5" />
-                Download
+                <Icon name="i-lucide-eye" class="size-3.5" />
+                Preview File
               </Button>
             </a>
           </div>
