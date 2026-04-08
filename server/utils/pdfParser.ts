@@ -1,4 +1,4 @@
-import pdfParseModule from 'pdf-parse'
+import { extractText, getDocumentProxy } from 'unpdf'
 
 export interface ParsedLineItem {
   lineNumber: number
@@ -459,13 +459,14 @@ export async function parsePurchaseOrderPdf(buffer: Buffer, originalFileName: st
     }
   }
 
-  // ─── Legacy Engine Fallback ──────────────────────────────────────────────────
-  // pdf-parse v1 uses a function-based API: pdfParse(buffer).then(data => data.text)
-  const pdfParse: any = pdfParseModule
-  const textResult = typeof pdfParse === 'function' ? await pdfParse(buffer) : await pdfParse.default(buffer)
-
-  const rawText = textResult.text || ''
-  const pageCount = textResult.numpages || 1
+  // ─── Legacy Engine Fallback (now using unpdf) ──────────────────────────────
+  // Convert Node Buffer to Uint8Array for unpdf
+  const pdfData = new Uint8Array(buffer)
+  const pdf = await getDocumentProxy(pdfData)
+  const { text } = await extractText(pdf, { mergePages: true })
+  
+  const rawText = text || ''
+  const pageCount = pdf.numPages || 1
   const vendorType = detectVendor(rawText)
 
   let parsed: Partial<ParsedInvoice>
