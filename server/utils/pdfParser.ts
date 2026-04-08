@@ -1,4 +1,4 @@
-import { extractText, getDocumentProxy } from 'unpdf'
+
 
 export interface ParsedLineItem {
   lineNumber: number
@@ -461,6 +461,7 @@ export async function parsePurchaseOrderPdf(buffer: Buffer, originalFileName: st
 
   // ─── Legacy Engine Fallback (now using unpdf) ──────────────────────────────
   // Convert Node Buffer to Uint8Array for unpdf
+  const { extractText, getDocumentProxy } = await import('unpdf')
   const pdfData = new Uint8Array(buffer)
   const pdf = await getDocumentProxy(pdfData)
   const { text } = await extractText(pdf, { mergePages: true })
