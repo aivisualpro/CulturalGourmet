@@ -1,4 +1,4 @@
-
+import pdfParseModule from 'pdf-parse'
 
 export interface ParsedLineItem {
   lineNumber: number
@@ -461,8 +461,7 @@ export async function parsePurchaseOrderPdf(buffer: Buffer, originalFileName: st
 
   // ─── Legacy Engine Fallback ──────────────────────────────────────────────────
   // pdf-parse v1 uses a function-based API: pdfParse(buffer).then(data => data.text)
-  const pdfParseModule = (await import('pdf-parse')) as any
-  const pdfParse = pdfParseModule.default || pdfParseModule
+  const pdfParse: any = pdfParseModule
   const textResult = typeof pdfParse === 'function' ? await pdfParse(buffer) : await pdfParse.default(buffer)
 
   const rawText = textResult.text || ''
